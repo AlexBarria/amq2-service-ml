@@ -405,6 +405,22 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
+  graphql-api:
+    build:
+      context: .
+      dockerfile: dockerfiles/graphql_api/Dockerfile
+    image: graphql_api
+    container_name: graphql_api
+    profiles:
+      - all
+    depends_on:
+      - postgres
+    ports:
+      - "8801:8801"
+    env_file:
+      - .env
+    networks:
+      - backend
 
 networks:
   frontend:

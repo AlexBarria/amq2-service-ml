@@ -81,4 +81,11 @@ class Query:
 schema = strawberry.Schema(Query)
 
 app = FastAPI()
-app.include_router(GraphQLRouter(schema), prefix="/graphql")
+app.include_router(GraphQLRouter(schema, graphiql=True), prefix="/graphql")
+# graphql_app = GraphQLRouter(schema, graphiql=True, debug=True)
+# app = FastAPI()
+# app.include_router(graphql_app, prefix="/graphql")
+
+# @app.get("/")
+# def read_root():
+#     return {"message": "FastAPI + Strawberry is running"}
