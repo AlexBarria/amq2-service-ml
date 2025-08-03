@@ -211,3 +211,101 @@ psql (PostgreSQL) 17.5
 ```
 
 Con esto ya podés volver a ejecutar el comando `psql` y realizar consultas sobre la tabla `fashion_files`.
+
+## API GraphQL
+
+Este proyecto expone una API GraphQL desarrollada con **Strawberry** y **FastAPI**, que permite consultar los metadatos de los archivos indexados del dataset `ashraq/fashion-product-images-small`.
+
+### 🔌 Ejecutar la API localmente
+
+Asegurate de tener el entorno virtual activado y ejecutá:
+
+```bash
+poetry run uvicorn src.api.graphql_api:app --reload --port 8800
+```
+
+Luego, accedé a la interfaz de pruebas de GraphQL en:
+
+```
+http://localhost:8800/graphql
+```
+
+---
+
+### 📋 Queries disponibles
+
+#### 🔹 `allFiles`
+
+Devuelve todos los registros indexados (limitado por defecto en el backend).
+
+```graphql
+{
+  allFiles {
+    id
+    filename
+    gender
+    masterCategory
+    baseColour
+  }
+}
+```
+
+---
+
+#### 🔹 `filesByFilters(...)`
+
+Consulta flexible con múltiples filtros opcionales y paginación:
+
+**Parámetros disponibles:**
+- `masterCategory` (String)
+- `gender` (String)
+- `baseColour` (String)
+- `season` (String)
+- `year` (String)
+- `limit` (Int, por defecto: 50)
+- `offset` (Int, por defecto: 0)
+
+**Ejemplos:**
+
+```graphql
+{
+  filesByFilters(gender: "Women", season: "Winter", limit: 10) {
+    id
+    filename
+    productDisplayName
+  }
+}
+```
+
+```graphql
+{
+  filesByFilters(baseColour: "Black", masterCategory: "Footwear", offset: 20) {
+    filename
+    year
+    season
+  }
+}
+```
+
+---
+
+### 📦 Campos disponibles en cada archivo (`FashionFile`)
+
+- `id`
+- `filename`
+- `s3Path`
+- `masterCategory`
+- `subCategory`
+- `articleType`
+- `baseColour`
+- `season`
+- `year`
+- `usage`
+- `gender`
+- `productDisplayName`
+- `dataset`
+- `created_at`
+
+---
+
+> 💡 Nota: los archivos físicos están almacenados en un bucket S3 (MinIO), y los campos representan metadatos extraídos al momento de la carga del dataset.
