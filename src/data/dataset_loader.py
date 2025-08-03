@@ -77,35 +77,48 @@ class MetadataIndexer:
     def __init__(self):
         self.engine = create_engine(os.getenv("PG_CONN_STR"))
         self.metadata = MetaData()
+
         self.table = Table(
             "fashion_files", self.metadata,
             Column("id", Integer, primary_key=True, autoincrement=True),
             Column("filename", String),
             Column("s3_path", String),
-            Column("category", String),
+            Column("masterCategory", String),
+            Column("subCategory", String),
+            Column("articleType", String),
+            Column("baseColour", String),
+            Column("season", String),
+            Column("year", String),
+            Column("usage", String),
             Column("gender", String),
             Column("productDisplayName", String),
             Column("dataset", String),
             Column("created_at", DateTime),
         )
-        self._ensure_table_exists()
 
-    def _ensure_table_exists(self):
-        try:
-            self.metadata.create_all(self.engine)
-        except OperationalError as e:
-            print(f"[x] Error creating table: {e}")
-            raise
+        self._recreate_table()
+
+    def _recreate_table(self):
+        # Drop the table if it exists, and recreate it
+        self.metadata.drop_all(self.engine, checkfirst=True)
+        self.metadata.create_all(self.engine)
+        print("[✓] Recreated fashion_files table.")
 
     def insert_record(self, record: dict, s3_path: str):
         with self.engine.begin() as conn:
             conn.execute(self.table.insert().values(
                 filename=record["filename"],
                 s3_path=s3_path,
-                category=record.get("masterCategory", "unknown"),
-                gender=record.get("gender", "unknown"),
-                productDisplayName=record.get("productDisplayName", ""),
-                dataset=record.get("dataset", ""),
+                masterCategory=record.get("masterCategory"),
+                subCategory=record.get("subCategory"),
+                articleType=record.get("articleType"),
+                baseColour=record.get("baseColour"),
+                season=record.get("season"),
+                year=str(record.get("year")),  # year might be int
+                usage=record.get("usage"),
+                gender=record.get("gender"),
+                productDisplayName=record.get("productDisplayName"),
+                dataset=record.get("dataset"),
                 created_at=datetime.utcnow()
             ))
 
