@@ -216,19 +216,10 @@ Con esto ya podés volver a ejecutar el comando `psql` y realizar consultas sobr
 
 Este proyecto expone una API GraphQL desarrollada con **Strawberry** y **FastAPI**, que permite consultar los metadatos de los archivos indexados del dataset `ashraq/fashion-product-images-small`.
 
-### 🔌 Ejecutar la API localmente
+### 🔌 Consultar la API
 
-Asegurate de tener el entorno virtual activado y ejecutá:
 
-```bash
-poetry run uvicorn src.api.graphql_api:app --reload --port 8800
-```
-
-Luego, accedé a la interfaz de pruebas de GraphQL en:
-
-```
-http://localhost:8800/graphql
-```
+Docker levantará la API en el puerto 8801:8801. Accediendo al endpoint `/graphql` se podrán ejecutar consultas usando la UI.
 
 ---
 
@@ -273,16 +264,6 @@ Consulta flexible con múltiples filtros opcionales y paginación:
     id
     filename
     productDisplayName
-  }
-}
-```
-
-```graphql
-{
-  filesByFilters(baseColour: "Black", masterCategory: "Footwear", offset: 20) {
-    filename
-    year
-    season
   }
 }
 ```
