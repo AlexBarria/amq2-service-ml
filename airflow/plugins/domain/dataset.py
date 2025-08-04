@@ -2,7 +2,8 @@ import logging
 from typing import List
 from PIL import Image
 from torch.utils.data import Dataset
-
+import boto3
+import io
 from domain.product import Product
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,12 @@ class FashionDataset(Dataset):
         self.preload = preload
         self.images = []
         if preload:
+            client = boto3.client('s3')
             for product in self.dataset:
-                self.images.append(Image.open(product.image).convert('RGB'))
+                image_bytes = io.BytesIO()
+                client.download_fileobj("data", str(product.image), image_bytes)
+                image_bytes.seek(0)
+                self.images.append(Image.open(image_bytes).convert('RGB'))
 
     def __len__(self) -> int:
         """ Returns the number of items in the dataset. """
@@ -63,7 +68,11 @@ class FashionDataset(Dataset):
             if self.preload:
                 image = self.images[idx]
             else:
-                image = Image.open(self.dataset[idx].image).convert('RGB')
+                client = boto3.client('s3')
+                image_bytes = io.BytesIO()
+                client.download_fileobj("data", self.dataset[idx].image, image_bytes)
+                image_bytes.seek(0)
+                image = Image.open(image_bytes).convert('RGB')
             text = item.description
 
             image_tensor = self.preprocess(image)

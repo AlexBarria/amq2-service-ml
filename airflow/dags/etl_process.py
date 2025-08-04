@@ -118,7 +118,7 @@ def process_etl_dataset():
         logger = logging.getLogger(__name__)
 
         storage_options = {"client_kwargs": {"endpoint_url": "http://s3:9000"}}
-        client = boto3.client('s3')
+        s3_client = boto3.client('s3')
 
         # Process and save training set
         logger.info("Processing training set...")
@@ -132,7 +132,7 @@ def process_etl_dataset():
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            client.upload_fileobj(image_bytes, "data", image_path)
+            s3_client.upload_fileobj(image_bytes, "data", image_path)
             train_products.append(
                 Product(product_id=idx,
                         name=item['id'],
@@ -140,11 +140,11 @@ def process_etl_dataset():
                         group=item['articleType'],
                         color=item['baseColour'],
                         master_category=item['masterCategory'],
-                        image=Path("s3://data/" + image_path)))
+                        image=Path(image_path)))
         train_products_bytes = io.BytesIO()
         pkl.dump(train_products, train_products_bytes)
         train_products_bytes.seek(0)
-        client.upload_fileobj(train_products_bytes, "data", train_products_path)
+        s3_client.upload_fileobj(train_products_bytes, "data", train_products_path)
         logger.info(f"Processed {len(train_dataset)} products in training set")
 
         # Process and save test set
@@ -159,7 +159,7 @@ def process_etl_dataset():
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            client.upload_fileobj(image_bytes, "data", image_path)
+            s3_client.upload_fileobj(image_bytes, "data", image_path)
             test_products.append(
                 Product(product_id=idx,
                         name=item['id'],
@@ -167,11 +167,11 @@ def process_etl_dataset():
                         group=item['articleType'],
                         color=item['baseColour'],
                         master_category=item['masterCategory'],
-                        image=Path("s3://data/" + image_path)))
+                        image=Path(image_path)))
         test_products_bytes = io.BytesIO()
         pkl.dump(test_products, test_products_bytes)
         test_products_bytes.seek(0)
-        client.upload_fileobj(test_products_bytes, "data", test_products_path)
+        s3_client.upload_fileobj(test_products_bytes, "data", test_products_path)
         logger.info(f"Processed {len(test_dataset)} products in test set")
 
         # Track the experiment

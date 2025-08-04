@@ -39,6 +39,7 @@ class CLIPFineTuner:
                 for training. If None, must be configured later.
         """
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Using device: {self.device}")
         # TODO: check if there's a better way to handle preprocess
         # Always get preprocess from open_clip
         _, _, self.preprocess = open_clip.create_model_and_transforms(
