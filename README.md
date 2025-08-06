@@ -147,3 +147,146 @@ Este repositorio está abierto para que realicen sus propios Pull Requests y as�
 - Reemplazar Airflow y MLflow con [Metaflow](https://metaflow.org/) o [Kubeflow](https://www.kubeflow.org).
 - Reemplazar MLflow con [Seldon-Core](https://github.com/SeldonIO/seldon-core).
 - Agregar un servicio de tableros como, por ejemplo, [Grafana](https://grafana.com).
+
+
+## Actualizaciones
+
+Para utilizar este repositorio y cargar datos del dataset `ashraq/fashion-product-images-small`, se puede ejecutar el siguiente comando:
+
+```bash
+poetry run python src/data/dataset_loader.py
+```
+
+Este script realiza las siguientes tareas:
+
+- Descarga un conjunto de imágenes del dataset desde Hugging Face.
+- Guarda las imágenes en un bucket S3 utilizando MinIO como almacenamiento.
+- Genera un índice en PostgreSQL, preservando las columnas originales del dataset y agregando campos adicionales de metadatos.
+
+---
+
+### Verificar los datos indexados en PostgreSQL
+
+Una vez ejecutado el script, se puede consultar el índice generado en PostgreSQL con:
+
+```bash
+psql -h localhost -p 15432 -U airflow -d airflow
+```
+
+Y luego ejecutar la siguiente consulta SQL:
+
+```sql
+SELECT * FROM fashion_files LIMIT 5;
+```
+
+---
+
+### Instalación de `psql` en macOS
+
+Para poder ejecutar `psql`, es necesario tenerlo instalado. En macOS, se puede instalar con:
+
+```bash
+brew install libpq
+```
+
+Como `libpq` es un paquete *keg-only*, no se agrega automáticamente al `PATH`. Para solucionarlo, se debe ejecutar:
+
+```bash
+echo 'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Verificá que haya quedado correctamente configurado con:
+
+```bash
+which psql
+psql --version
+```
+
+La salida esperada debería ser similar a:
+
+```
+/opt/homebrew/opt/libpq/bin/psql
+psql (PostgreSQL) 17.5
+```
+
+Con esto ya podés volver a ejecutar el comando `psql` y realizar consultas sobre la tabla `fashion_files`.
+
+## API GraphQL
+
+Este proyecto expone una API GraphQL desarrollada con **Strawberry** y **FastAPI**, que permite consultar los metadatos de los archivos indexados del dataset `ashraq/fashion-product-images-small`.
+
+### 🔌 Consultar la API
+
+
+Docker levantará la API en el puerto 8801:8801. Accediendo al endpoint `/graphql` se podrán ejecutar consultas usando la UI.
+
+---
+
+### 📋 Queries disponibles
+
+#### 🔹 `allFiles`
+
+Devuelve todos los registros indexados (limitado por defecto en el backend).
+
+```graphql
+{
+  allFiles {
+    id
+    filename
+    gender
+    masterCategory
+    baseColour
+  }
+}
+```
+
+---
+
+#### 🔹 `filesByFilters(...)`
+
+Consulta flexible con múltiples filtros opcionales y paginación:
+
+**Parámetros disponibles:**
+- `masterCategory` (String)
+- `gender` (String)
+- `baseColour` (String)
+- `season` (String)
+- `year` (String)
+- `limit` (Int, por defecto: 50)
+- `offset` (Int, por defecto: 0)
+
+**Ejemplos:**
+
+```graphql
+{
+  filesByFilters(gender: "Women", season: "Winter", limit: 10) {
+    id
+    filename
+    productDisplayName
+  }
+}
+```
+
+---
+
+### 📦 Campos disponibles en cada archivo (`FashionFile`)
+
+- `id`
+- `filename`
+- `s3Path`
+- `masterCategory`
+- `subCategory`
+- `articleType`
+- `baseColour`
+- `season`
+- `year`
+- `usage`
+- `gender`
+- `productDisplayName`
+- `dataset`
+- `created_at`
+
+---
+
+> 💡 Nota: los archivos físicos están almacenados en un bucket S3 (MinIO), y los campos representan metadatos extraídos al momento de la carga del dataset.

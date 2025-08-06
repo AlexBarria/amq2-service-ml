@@ -72,7 +72,7 @@ services:
       - mlflow
       - all
     ports:
-      - "${PG_PORT:-5432}:5432"
+      - "${PG_PORT:-15432}:5432"
     networks:
       - backend
     environment:
@@ -81,7 +81,7 @@ services:
       - POSTGRES_USER=${PG_USER:-airflow}
       - POSTGRES_PASSWORD=${PG_PASSWORD:-airflow}
       - POSTGRES_DATABASE=${PG_DATABASE:-airflow}
-      - POSTGRES_PORT=${PG_PORT:-5432}
+      - POSTGRES_PORT=${PG_PORT:-15432}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -405,6 +405,22 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
+  graphql-api:
+    build:
+      context: .
+      dockerfile: dockerfiles/graphql_api/Dockerfile
+    image: graphql_api
+    container_name: graphql_api
+    profiles:
+      - all
+    depends_on:
+      - postgres
+    ports:
+      - "8801:8801"
+    env_file:
+      - .env
+    networks:
+      - backend
 
 networks:
   frontend:
