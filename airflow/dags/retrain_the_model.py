@@ -35,16 +35,17 @@ def finetune():
     )
     def finetune_the_challenger_model():
         import mlflow
-        import boto3
         from airflow.models import Variable
         from domain.dataset import FashionDataset
         from domain.trainer import CLIPFineTuner
         from domain.utils import collate_fn
+        from domain.product import Product
+        import Path
         from torch.utils.data import DataLoader
-        import io
         import logging
-        import pickle as pkl
         import datetime
+        import os
+        from sqlalchemy import create_engine, MetaData, Table
 
         logger = logging.getLogger(__name__)
 
@@ -57,18 +58,35 @@ def finetune():
             raise
         preprocess = trainer.get_preprocessor()
         tokenizer = trainer.get_tokenizer()
+
         logger.info("Loading train dataset")
-        s3_client = boto3.client('s3')
+        # Connect to PostgreSQL
+        engine = create_engine(os.getenv("AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"))
+        metadata = MetaData()
+        table_train = Table("train_fashion_files", metadata, autoload_with=engine)
+
+        # Query all training records
         try:
-            train_products_bytes = io.BytesIO()
-            s3_client.download_fileobj("data", "processed/train/product_metadata.bin", train_products_bytes)
-            train_products_bytes.seek(0)
-            train_products = pkl.load(train_products_bytes)
+            with engine.connect() as conn:
+                result = conn.execute(select(table_train))
+                train_records = [dict(row) for row in result]
+            train_products = []
+            for record in train_records:
+                product = Product(
+                    product_id=record["id"],
+                    name=record["productDisplayName"],
+                    description=record["description"],
+                    group=record["masterCategory"],
+                    color=record["baseColour"],
+                    image=Path(record["s3_path"]),
+                    master_category=record["masterCategory"]
+                )
+                train_products.append(product)
             custom_dataset = FashionDataset(
                 product_dataset=train_products,
                 preprocess=preprocess,
-                tokenizer=tokenizer,
-            )
+                tokenizer=tokenizer)
+
         except Exception as e:
             logger.error(f"Failed to create FashionDataset: {e}")
             raise

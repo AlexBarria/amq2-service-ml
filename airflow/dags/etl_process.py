@@ -108,70 +108,115 @@ def process_etl_dataset():
         from airflow.models import Variable
         import mlflow
         import boto3
-        import pickle as pkl
-        from domain.product import Product
-        from pathlib import Path
         import logging
         import io
         import datetime
+        import os
+        from sqlalchemy import create_engine, Column, Integer, String, DateTime, MetaData, Table
 
         logger = logging.getLogger(__name__)
 
         storage_options = {"client_kwargs": {"endpoint_url": "http://s3:9000"}}
         s3_client = boto3.client('s3')
 
+        db_conn_str = Variable.get("PG_CONN_STR")
+        logger.info(db_conn_str)
+
+        engine = create_engine(db_conn_str)
+        metadata = MetaData()
+        table_train = Table("train_fashion_files", metadata,
+                            Column("id", Integer, primary_key=True, autoincrement=True),
+                            Column("filename", String),
+                            Column("s3_path", String),
+                            Column("masterCategory", String),
+                            Column("subCategory", String),
+                            Column("articleType", String),
+                            Column("baseColour", String),
+                            Column("season", String),
+                            Column("year", String),
+                            Column("usage", String),
+                            Column("gender", String),
+                            Column("productDisplayName", String),
+                            Column("dataset", String),
+                            Column("created_at", DateTime),
+                            )
+        table_test = Table("test_fashion_files", metadata,
+                           Column("id", Integer, primary_key=True, autoincrement=True),
+                           Column("filename", String),
+                           Column("s3_path", String),
+                           Column("masterCategory", String),
+                           Column("subCategory", String),
+                           Column("articleType", String),
+                           Column("baseColour", String),
+                           Column("season", String),
+                           Column("year", String),
+                           Column("usage", String),
+                           Column("gender", String),
+                           Column("productDisplayName", String),
+                           Column("dataset", String),
+                           Column("created_at", DateTime),
+                           )
+        metadata.drop_all(engine, checkfirst=True)
+        metadata.create_all(engine)
+
         # Process and save training set
         logger.info("Processing training set...")
         train_dataset = load_from_disk("s3://data/interim/train_dataset", storage_options=storage_options)
-        train_dir = "processed/train/"
-        train_products_path = train_dir + 'product_metadata.bin'
-        train_products = []
+        train_s3_dir = "processed/train/"
         for idx, item in enumerate(train_dataset):
             item = dict(item)  # Force conversion to dict for compatibility
-            image_path = train_dir + f'product_{idx}.jpg'
+            item_name =  f"{idx}_{item['id']}.jpg"
+            image_s3_path = train_s3_dir + item_name
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            s3_client.upload_fileobj(image_bytes, "data", image_path)
-            train_products.append(
-                Product(product_id=idx,
-                        name=item['id'],
-                        description=item['productDisplayName'],
-                        group=item['articleType'],
-                        color=item['baseColour'],
-                        master_category=item['masterCategory'],
-                        image=Path(image_path)))
-        train_products_bytes = io.BytesIO()
-        pkl.dump(train_products, train_products_bytes)
-        train_products_bytes.seek(0)
-        s3_client.upload_fileobj(train_products_bytes, "data", train_products_path)
+            s3_client.upload_fileobj(image_bytes, "data", image_s3_path)
+            with engine.begin() as conn:
+                conn.execute(table_train.insert().values(
+                    filename=item_name,
+                    s3_path=image_s3_path,
+                    masterCategory=item["masterCategory"],
+                    subCategory=item["subCategory"],
+                    articleType=item["articleType"],
+                    baseColour=item["baseColour"],
+                    season=item["season"],
+                    year=str(item["year"]),  # year might be int
+                    usage=item["usage"],
+                    gender=item["gender"],
+                    productDisplayName=item["productDisplayName"],
+                    dataset="ashraq/fashion-product-images-small",
+                    created_at=datetime.datetime.now(datetime.UTC)
+                ))
         logger.info(f"Processed {len(train_dataset)} products in training set")
 
         # Process and save test set
         logger.info("Processing test set...")
         test_dataset = load_from_disk("s3://data/interim/test_dataset", storage_options=storage_options)
-        test_dir = "processed/test/"
-        test_products_path = test_dir + 'product_metadata.bin'
-        test_products = []
+        test_s3_dir = "processed/test/"
         for idx, item in enumerate(test_dataset):
             item = dict(item)  # Force conversion to dict for compatibility
-            image_path = test_dir + f'product_{idx}.jpg'
+            item_name = f"{idx}_{item['id']}.jpg"
+            image_s3_path = test_s3_dir + item_name
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            s3_client.upload_fileobj(image_bytes, "data", image_path)
-            test_products.append(
-                Product(product_id=idx,
-                        name=item['id'],
-                        description=item['productDisplayName'],
-                        group=item['articleType'],
-                        color=item['baseColour'],
-                        master_category=item['masterCategory'],
-                        image=Path(image_path)))
-        test_products_bytes = io.BytesIO()
-        pkl.dump(test_products, test_products_bytes)
-        test_products_bytes.seek(0)
-        s3_client.upload_fileobj(test_products_bytes, "data", test_products_path)
+            s3_client.upload_fileobj(image_bytes, "data", image_s3_path)
+            with engine.begin() as conn:
+                conn.execute(table_test.insert().values(
+                    filename=item_name,
+                    s3_path=image_s3_path,
+                    masterCategory=item["masterCategory"],
+                    subCategory=item["subCategory"],
+                    articleType=item["articleType"],
+                    baseColour=item["baseColour"],
+                    season=item["season"],
+                    year=str(item["year"]),  # year might be int
+                    usage=item["usage"],
+                    gender=item["gender"],
+                    productDisplayName=item["productDisplayName"],
+                    dataset="ashraq/fashion-product-images-small",
+                    created_at=datetime.datetime.now(datetime.UTC)
+                ))
         logger.info(f"Processed {len(test_dataset)} products in test set")
 
         # Track the experiment
@@ -182,10 +227,12 @@ def process_etl_dataset():
                          experiment_id=experiment.experiment_id,
                          tags={"experiment": "etl", "dataset": "Fashion Product Dataset"},
                          log_system_metrics=True)
-        mlflow.log_param("Train observations", len(train_products))
-        mlflow.log_param("Test observations", len(test_products))
-        mlflow.log_param("Train products path", "s3://data/" + train_dir)
-        mlflow.log_param("Test products path", "s3://data/" + test_dir)
+        mlflow.log_param("Train observations", len(train_dataset))
+        mlflow.log_param("Test observations", len(test_dataset))
+        mlflow.log_param("Train items metadata table", table_train.name)
+        mlflow.log_param("Train items image path", "s3://data/" + train_s3_dir)
+        mlflow.log_param("Test items metadata table", table_test.name)
+        mlflow.log_param("Test items image path", "s3://data/" + test_s3_dir)
 
     get_data() >> split_dataset() >> process_datasets()
 
