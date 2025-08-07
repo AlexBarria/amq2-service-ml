@@ -72,7 +72,7 @@ services:
       - mlflow
       - all
     ports:
-      - "${PG_PORT:-15432}:5432"
+      - "${PG_PORT:-5432}:5432"
     networks:
       - backend
     environment:
@@ -81,7 +81,7 @@ services:
       - POSTGRES_USER=${PG_USER:-airflow}
       - POSTGRES_PASSWORD=${PG_PASSWORD:-airflow}
       - POSTGRES_DATABASE=${PG_DATABASE:-airflow}
-      - POSTGRES_PORT=${PG_PORT:-15432}
+      - POSTGRES_PORT=${PG_PORT:-5432}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:

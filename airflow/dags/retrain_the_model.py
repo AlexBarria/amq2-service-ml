@@ -40,12 +40,11 @@ def finetune():
         from domain.trainer import CLIPFineTuner
         from domain.utils import collate_fn
         from domain.product import Product
-        import Path
         from torch.utils.data import DataLoader
         import logging
         import datetime
-        import os
-        from sqlalchemy import create_engine, MetaData, Table
+        from sqlalchemy import create_engine, MetaData, Table, select
+        from pathlib import Path
 
         logger = logging.getLogger(__name__)
 
@@ -60,12 +59,9 @@ def finetune():
         tokenizer = trainer.get_tokenizer()
 
         logger.info("Loading train dataset")
-        # Connect to PostgreSQL
-        engine = create_engine(os.getenv("AIRFLOW__DATABASE__SQL_ALCHEMY_CONN"))
+        engine = create_engine(Variable.get("PG_CONN_STR"))
         metadata = MetaData()
         table_train = Table("train_fashion_files", metadata, autoload_with=engine)
-
-        # Query all training records
         try:
             with engine.connect() as conn:
                 result = conn.execute(select(table_train))
@@ -74,19 +70,17 @@ def finetune():
             for record in train_records:
                 product = Product(
                     product_id=record["id"],
-                    name=record["productDisplayName"],
-                    description=record["description"],
-                    group=record["masterCategory"],
-                    color=record["baseColour"],
-                    image=Path(record["s3_path"]),
-                    master_category=record["masterCategory"]
-                )
+                    name=record["filename"],
+                    description=record['productDisplayName'],
+                    group=record['articleType'],
+                    color=record['baseColour'],
+                    master_category=record['masterCategory'],
+                    image=Path(record["s3_path"]))
                 train_products.append(product)
             custom_dataset = FashionDataset(
                 product_dataset=train_products,
                 preprocess=preprocess,
                 tokenizer=tokenizer)
-
         except Exception as e:
             logger.error(f"Failed to create FashionDataset: {e}")
             raise
@@ -173,24 +167,41 @@ def finetune():
     )
     def evaluate_champion_challenge():
         import mlflow
+        from airflow.models import Variable
+        from domain.product import Product
         from domain.clip_model import ProductRetrieval
         from domain.metrics import top_k_description_accuracy_score
         import pickle as pkl
         import logging
         import boto3
         import io
+        from sqlalchemy import create_engine, MetaData, Table, select
+        from pathlib import Path
+
 
         logger = logging.getLogger(__name__)
 
         mlflow.set_tracking_uri('http://mlflow:5000')
 
         logger.info("Loading test dataset")
-        s3_client = boto3.client('s3')
+        engine = create_engine(Variable.get("PG_CONN_STR"))
+        metadata = MetaData()
+        table_train = Table("test_fashion_files", metadata, autoload_with=engine)
         try:
-            test_products_bytes = io.BytesIO()
-            s3_client.download_fileobj("data", "processed/test/product_metadata.bin", test_products_bytes)
-            test_products_bytes.seek(0)
-            test_products = pkl.load(test_products_bytes)
+            with engine.connect() as conn:
+                result = conn.execute(select(table_train))
+                train_records = [dict(row) for row in result]
+            test_products = []
+            for record in train_records:
+                product = Product(
+                    product_id=record["id"],
+                    name=record["filename"],
+                    description=record['productDisplayName'],
+                    group=record['articleType'],
+                    color=record['baseColour'],
+                    master_category=record['masterCategory'],
+                    image=Path(record["s3_path"]))
+                test_products.append(product)
         except Exception as e:
             logger.error(f"Failed to create FashionDataset: {e}")
             raise
@@ -229,10 +240,7 @@ def finetune():
             mlflow_client = mlflow.MlflowClient()
             try:
                 mlflow_client.delete_registered_model_alias(model_name, "champion")
-            except:
-                logger.warning("Champion alias not found, proceeding to promote challenger.")
-            challenger_version = mlflow_client.get_model_version_by_alias(model_name, "challenger")
-            try:
+                challenger_version = mlflow_client.get_model_version_by_alias(model_name, "challenger")
                 mlflow_client.delete_registered_model_alias(model_name, "challenger")
                 mlflow_client.set_registered_model_alias(model_name, "champion", challenger_version.version)
                 logger.info("Challenger model promoted to champion.")

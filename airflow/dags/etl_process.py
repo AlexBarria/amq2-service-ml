@@ -111,7 +111,6 @@ def process_etl_dataset():
         import logging
         import io
         import datetime
-        import os
         from sqlalchemy import create_engine, Column, Integer, String, DateTime, MetaData, Table
 
         logger = logging.getLogger(__name__)
@@ -119,10 +118,7 @@ def process_etl_dataset():
         storage_options = {"client_kwargs": {"endpoint_url": "http://s3:9000"}}
         s3_client = boto3.client('s3')
 
-        db_conn_str = Variable.get("PG_CONN_STR")
-        logger.info(db_conn_str)
-
-        engine = create_engine(db_conn_str)
+        engine = create_engine(Variable.get("PG_CONN_STR"))
         metadata = MetaData()
         table_train = Table("train_fashion_files", metadata,
                             Column("id", Integer, primary_key=True, autoincrement=True),
