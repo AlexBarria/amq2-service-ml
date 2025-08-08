@@ -81,7 +81,7 @@ services:
       - POSTGRES_USER=${PG_USER:-airflow}
       - POSTGRES_PASSWORD=${PG_PASSWORD:-airflow}
       - POSTGRES_DATABASE=${PG_DATABASE:-airflow}
-      - POSTGRES_PORT=${PG_PORT:-5432}
+      - POSTGRES_PORT=5432
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -147,6 +147,7 @@ services:
       /usr/bin/mc alias set s3 http://s3:9000 ${MINIO_ACCESS_KEY:-minio} ${MINIO_SECRET_ACCESS_KEY:-minio123};
       /usr/bin/mc mb s3/${MLFLOW_BUCKET_NAME:-mlflow};
       /usr/bin/mc mb s3/${DATA_REPO_BUCKET_NAME:-data};
+      /usr/bin/mc mb s3/${PROD_REPO_BUCKET_NAME:-prod};
       exit 0;
       '
 

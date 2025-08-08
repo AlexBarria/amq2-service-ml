@@ -1,4 +1,4 @@
-FROM postgres:13
+FROM pgvector/pgvector:pg16
 
 # The official recommendation for creating multiple databases is as follows:
 # If you would like to do additional initialization in an image derived from this one, add one or more
@@ -7,3 +7,4 @@ FROM postgres:13
 # and source any *.sh scripts found in that directory to do further initialization before starting the service.
 
 COPY mlflow.sql /docker-entrypoint-initdb.d/
+COPY fashion.sql /docker-entrypoint-initdb.d/

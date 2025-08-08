@@ -4,7 +4,6 @@ Supports both text and image queries.
 Classes:
     - ProductRetrieval: Encapsulates model loading, embedding generation, and FAISS indexing.
 """
-import pickle as pkl
 import logging
 import faiss
 import numpy as np
@@ -21,13 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 class ProductRetrieval:
-    def __init__(self, model):
+    def __init__(self, model, bucket: str = "data"):
         """
         Initializes the CLIP model and processor for embedding generation.
-        If model_path is provided it loads the weights, otherwise it uses the default openai pretrained model.
+        If model is not provided, it uses the default openai pretrained model.
 
         Args:
-            model_path (str): fine-tuned weights for the clip model.
+            model (torch.nn.Module): CLIP model.
+            bucket (str): S3 bucket name where images are stored.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {self.device}")
@@ -43,6 +43,7 @@ class ProductRetrieval:
         self.tokenizer = open_clip.get_tokenizer('ViT-B-32')
         self.index = None
         self.index_products = []
+        self.bucket = bucket
 
     def compute_text_embeddings(self, text: str) -> np.ndarray:
         """
@@ -81,7 +82,7 @@ class ProductRetrieval:
                 try:
                     client = boto3.client('s3')
                     image_bytes = io.BytesIO()
-                    client.download_fileobj("data", str(image_path), image_bytes)
+                    client.download_fileobj(self.bucket, str(image_path), image_bytes)
                     image_bytes.seek(0)
                     image = Image.open(image_bytes).convert('RGB')
                 except Exception as e:
@@ -162,37 +163,3 @@ class ProductRetrieval:
             results["matches"].append((self.index_products[idx].to_json(), float(score)))
 
         return results
-
-    def save_index(self, index_path: Union[str, Path], faiss_path: Union[str, Path]):
-        """
-        Saves the FAISS index and associated products metadata.
-
-        Args:
-            index_path (str | Path): Path to save product metadata (pickle).
-            faiss_path (str | Path): Path to save FAISS index.
-        """
-        try:
-            with open(index_path, 'wb') as f:
-                pkl.dump(self.index_products, f)
-            faiss.write_index(self.index, str(faiss_path))
-            logger.info(f"Index saved to {faiss_path} and metadata to {index_path}")
-        except Exception as e:
-            logger.error(f"Failed to save index: {e}")
-            raise
-
-    def load_index(self, index_path: Union[str, Path], faiss_path: Union[str, Path]):
-        """
-        Loads a previously saved FAISS index and product metadata.
-
-        Args:
-            index_path (str | Path): Path to metadata pickle file.
-            faiss_path (str | Path): Path to FAISS index file.
-        """
-        try:
-            with open(index_path, 'rb') as f:
-                self.index_products = pkl.load(f)
-            self.index = faiss.read_index(str(faiss_path))
-            logger.info(f"Index loaded from {faiss_path} and metadata from {index_path}")
-        except Exception as e:
-            logger.error(f"Failed to load index: {e}")
-            raise

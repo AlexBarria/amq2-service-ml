@@ -2,11 +2,11 @@ import datetime
 from airflow.decorators import dag, task
 
 markdown_text = """
-### ETL Process for Fashion Data
+### ETL Process for Train/Test Fashion Dataset
 
 This DAG download and prepare the Fashion Product Images dataset from Hugging Face.
 
-After preprocessing, it saves train/test splits with metadata and corresponding images into an S3 bucket.
+After preprocessing, it saves train/test splits and saves metadata in SQL DB and corresponding images into an S3 bucket.
 """
 
 default_args = {
@@ -20,14 +20,14 @@ default_args = {
 
 
 @dag(
-    dag_id="process_etl_dataset",
+    dag_id="process_train_test_dataset",
     description="ETL process for Fashion dataset, separating the dataset into training and testing sets.",
     doc_md=markdown_text,
     tags=["ETL", "Fashion", "Dataset"],
     default_args=default_args,
     catchup=False,
 )
-def process_etl_dataset():
+def process_train_test_dataset():
     @task.virtualenv(
         task_id="obtain_original_data",
         requirements=["datasets==3.6.0"],
@@ -118,9 +118,9 @@ def process_etl_dataset():
         storage_options = {"client_kwargs": {"endpoint_url": "http://s3:9000"}}
         s3_client = boto3.client('s3')
 
-        engine = create_engine(Variable.get("PG_CONN_STR"))
+        engine = create_engine(Variable.get("fashion_db_conn"))
         metadata = MetaData()
-        table_train = Table("train_fashion_files", metadata,
+        table_train = Table("train_dataset", metadata,
                             Column("id", Integer, primary_key=True, autoincrement=True),
                             Column("filename", String),
                             Column("s3_path", String),
@@ -136,7 +136,7 @@ def process_etl_dataset():
                             Column("dataset", String),
                             Column("created_at", DateTime),
                             )
-        table_test = Table("test_fashion_files", metadata,
+        table_test = Table("test_dataset", metadata,
                            Column("id", Integer, primary_key=True, autoincrement=True),
                            Column("filename", String),
                            Column("s3_path", String),
@@ -232,4 +232,4 @@ def process_etl_dataset():
 
     get_data() >> split_dataset() >> process_datasets()
 
-dag = process_etl_dataset()
+dag = process_train_test_dataset()

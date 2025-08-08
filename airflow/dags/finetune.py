@@ -59,9 +59,9 @@ def finetune():
         tokenizer = trainer.get_tokenizer()
 
         logger.info("Loading train dataset")
-        engine = create_engine(Variable.get("PG_CONN_STR"))
+        engine = create_engine(Variable.get("fashion_db_conn"))
         metadata = MetaData()
-        table_train = Table("train_fashion_files", metadata, autoload_with=engine)
+        table_train = Table("train_dataset", metadata, autoload_with=engine)
         try:
             with engine.connect() as conn:
                 result = conn.execute(select(table_train))
@@ -171,10 +171,7 @@ def finetune():
         from domain.product import Product
         from domain.clip_model import ProductRetrieval
         from domain.metrics import top_k_description_accuracy_score
-        import pickle as pkl
         import logging
-        import boto3
-        import io
         from sqlalchemy import create_engine, MetaData, Table, select
         from pathlib import Path
 
@@ -184,12 +181,12 @@ def finetune():
         mlflow.set_tracking_uri('http://mlflow:5000')
 
         logger.info("Loading test dataset")
-        engine = create_engine(Variable.get("PG_CONN_STR"))
+        engine = create_engine(Variable.get("fashion_db_conn"))
         metadata = MetaData()
-        table_train = Table("test_fashion_files", metadata, autoload_with=engine)
+        table_test = Table("test_dataset", metadata, autoload_with=engine)
         try:
             with engine.connect() as conn:
-                result = conn.execute(select(table_train))
+                result = conn.execute(select(table_test))
                 train_records = [dict(row) for row in result]
             test_products = []
             for record in train_records:
@@ -220,7 +217,7 @@ def finetune():
 
         # Testing metrics of the champion model
         logger.info("Testing champion model")
-        product_retrieval = ProductRetrieval(model=model_champion)
+        product_retrieval = ProductRetrieval(model=model_champion, bucket="data")
         product_retrieval.index_product_database(test_products)
         champion_accuracy = top_k_description_accuracy_score(product_retrieval, test_products, k=3)
         logger.info(f"Top-3 description champion accuracy: {champion_accuracy}")
@@ -230,7 +227,7 @@ def finetune():
         alias = "challenger"
         model_uri = f"models:/{model_name}@{alias}"
         challenger_model = mlflow.pytorch.load_model(model_uri)
-        product_retrieval = ProductRetrieval(model=challenger_model)
+        product_retrieval = ProductRetrieval(model=challenger_model,bucket="data")
         product_retrieval.index_product_database(test_products)
         challenger_accuracy = top_k_description_accuracy_score(product_retrieval, test_products, k=3)
         logger.info(f"Top-3 description challenger accuracy: {challenger_accuracy}")
