@@ -31,6 +31,7 @@ class FashionFile:
     productDisplayName: str | None
     dataset: str | None
     created_at: datetime
+    embedding: List[float] | None = strawberry.field(default=None)
 
 @strawberry.type
 class Query:
