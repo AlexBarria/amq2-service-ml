@@ -1,7 +1,7 @@
 import grpc
 from concurrent import futures
 
-from sqlalchemy import create_engine, MetaData, Table, select
+from sqlalchemy import create_engine, MetaData, Table
 import logging
 import mlflow
 
@@ -30,47 +30,48 @@ class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
         image_path = request.image_path
 
         if description is not None and len(description) > 0:
+            logger.info(f"Computing text embedding for description: {description}")
+            embedding = self.model.compute_text_embeddings(description)[0, :]
+        elif image_path is not None and len(image_path) > 0:
+            logger.info(f"Computing image embedding for image_path: {image_path}")
+            embedding = self.model.compute_image_embeddings(image_path)[0, :]
+        else:
+            logger.error("No valid input provided for prediction.")
+            context.set_details("No valid input provided for prediction.")
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            return ml_service_pb2.Prediction()
+        try:
             engine = create_engine(os.getenv("PG_CONN_STR"))
             metadata = MetaData()
             table_fashion = Table("fashion_files", metadata, autoload_with=engine)
-            embedding = self.model.compute_text_embeddings(description)[0, :]
-            try:
-                with engine.connect() as conn:
-                    result = conn.execute(select(table_fashion)
-                                          .order_by(table_fashion.c.embedding.cosine_distance(embedding)).limit(5))
-            except Exception as e:
-                logger.error(f"Read execute failed: {e}")
-            try:
-                products = []
-                for row in result.mappings():
-                    product = ml_service_pb2.FashionProduct(
-                        id=row['id'],
-                        filename=row['filename'],
-                        s3_path=row['s3_path'],
-                        master_category=row['masterCategory'],
-                        sub_category=row['subCategory'],
-                        article_type=row['articleType'],
-                        base_colour=row['baseColour'],
-                        season=row['season'],
-                        year=row['year'],
-                        usage=row['usage'],
-                        gender=row['gender'],
-                        product_display_name=row["productDisplayName"],
-                        dataset=row['dataset'],
-                        created_at=str(row['created_at']),
-                        embedding=list(row['embedding']) if hasattr(row, "embedding") else [])
-                    products.append(product)
-                return ml_service_pb2.Prediction(fashion_product=products)
-            except Exception as e:
-                logger.error(f"Prediction failed: {e}")
-                context.set_details("Prediction failed")
-                context.set_code(grpc.StatusCode.INTERNAL)
-                return ml_service_pb2.Prediction()
-
-        logger.error(f"Unimplemented")
-        context.set_details("Unimplemented")
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        return ml_service_pb2.Prediction()
+            with engine.connect() as conn:
+                result = conn.execute(table_fashion.select()
+                                      .order_by(table_fashion.c.embedding.cosine_distance(embedding)).limit(5))
+            products = []
+            for row in result.mappings():
+                product = ml_service_pb2.FashionProduct(
+                    id=row['id'],
+                    filename=row['filename'],
+                    s3_path=row['s3_path'],
+                    master_category=row['masterCategory'],
+                    sub_category=row['subCategory'],
+                    article_type=row['articleType'],
+                    base_colour=row['baseColour'],
+                    season=row['season'],
+                    year=row['year'],
+                    usage=row['usage'],
+                    gender=row['gender'],
+                    product_display_name=row["productDisplayName"],
+                    dataset=row['dataset'],
+                    created_at=str(row['created_at']),
+                    embedding=list(row['embedding']) if hasattr(row, "embedding") else [])
+                products.append(product)
+            return ml_service_pb2.Prediction(fashion_product=products)
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            context.set_details("Prediction failed")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            return ml_service_pb2.Prediction()
 
 
 def serve():
@@ -85,7 +86,7 @@ def serve():
     except Exception as e:
         logger.warning(f"Champion model not found: {e}")
         model_champion = None
-    product_retrieval = ProductRetrieval(model=model_champion, bucket="prod")
+    product_retrieval = ProductRetrieval(model=model_champion, bucket="tmp")
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     ml_service_pb2_grpc.add_MLServiceServicer_to_server(MLServiceServicer(product_retrieval), server)

@@ -20,7 +20,7 @@ engine = create_engine(os.getenv("PG_CONN_STR"))
 def query_model_grpc(query: str):
     with grpc.insecure_channel("model_grpc:50051") as channel:
         stub = ml_service_pb2_grpc.MLServiceStub(channel)
-        request = ml_service_pb2.Search(description=query, image=None)
+        request = ml_service_pb2.Search(description=query, image_path=None)
         response = stub.Predict(request)
     return response
 
@@ -42,7 +42,6 @@ class FashionFile:
     productDisplayName: str | None
     dataset: str | None
     created_at: datetime
-    embedding: List[float] | None = strawberry.field(default=None)
 
 
 @strawberry.type
@@ -113,8 +112,7 @@ class Mutation:
                 gender=prod.gender,
                 productDisplayName=prod.product_display_name,
                 dataset=prod.dataset,
-                created_at=prod.created_at,
-                embedding=list(prod.embedding) if hasattr(prod, "embedding") else None
+                created_at=prod.created_at
             ) for prod in response.fashion_product]
 
 

@@ -148,6 +148,7 @@ services:
       /usr/bin/mc mb s3/${MLFLOW_BUCKET_NAME:-mlflow};
       /usr/bin/mc mb s3/${DATA_REPO_BUCKET_NAME:-data};
       /usr/bin/mc mb s3/${PROD_REPO_BUCKET_NAME:-prod};
+      /usr/bin/mc mb s3/${TMP_REPO_BUCKET_NAME:-tmp};
       exit 0;
       '
 
