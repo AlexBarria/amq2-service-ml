@@ -6,13 +6,24 @@ import strawberry
 from fastapi import FastAPI
 from strawberry.fastapi import GraphQLRouter
 from sqlalchemy import create_engine, text
-from pydantic import BaseModel
 from dotenv import load_dotenv
+import grpc
+import ml_service_pb2
+import ml_service_pb2_grpc
 
 load_dotenv()
 
 # SQLAlchemy setup
 engine = create_engine(os.getenv("PG_CONN_STR"))
+
+
+def query_model_grpc(query: str):
+    with grpc.insecure_channel("model_grpc:50051") as channel:
+        stub = ml_service_pb2_grpc.MLServiceStub(channel)
+        request = ml_service_pb2.Search(description=query, image=None)
+        response = stub.Predict(request)
+    return response
+
 
 # Strawberry types
 @strawberry.type
@@ -33,6 +44,7 @@ class FashionFile:
     created_at: datetime
     embedding: List[float] | None = strawberry.field(default=None)
 
+
 @strawberry.type
 class Query:
     @strawberry.field
@@ -43,14 +55,14 @@ class Query:
 
     @strawberry.field
     def files_by_filters(
-        self,
-        masterCategory: str | None = None,
-        gender: str | None = None,
-        baseColour: str | None = None,
-        season: str | None = None,
-        year: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
+            self,
+            masterCategory: str | None = None,
+            gender: str | None = None,
+            baseColour: str | None = None,
+            season: str | None = None,
+            year: str | None = None,
+            limit: int = 50,
+            offset: int = 0,
     ) -> List[FashionFile]:
         query = "SELECT * FROM fashion_files WHERE 1=1"
         params = {}
@@ -79,7 +91,34 @@ class Query:
             result = conn.execute(text(query), params).fetchall()
             return [FashionFile(**row._mapping) for row in result]
 
-schema = strawberry.Schema(Query)
+
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    def search(self, description: str) -> list[FashionFile]:
+        response = query_model_grpc(description)
+        # Assuming response.fashion_product is iterable and matches FashionFile fields
+        return [
+            FashionFile(
+                id=prod.id,
+                filename=prod.filename,
+                s3_path=prod.s3_path,
+                masterCategory=prod.master_category,
+                subCategory=prod.sub_category,
+                articleType=prod.article_type,
+                baseColour=prod.base_colour,
+                season=prod.season,
+                year=prod.year,
+                usage=prod.usage,
+                gender=prod.gender,
+                productDisplayName=prod.product_display_name,
+                dataset=prod.dataset,
+                created_at=prod.created_at,
+                embedding=list(prod.embedding) if hasattr(prod, "embedding") else None
+            ) for prod in response.fashion_product]
+
+
+schema = strawberry.Schema(query=Query, mutation=Mutation)
 
 app = FastAPI()
 app.include_router(GraphQLRouter(schema, graphiql=True), prefix="/graphql")

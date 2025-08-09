@@ -406,6 +406,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
+
   graphql-api:
     build:
       context: .
@@ -420,6 +421,25 @@ services:
       - "8801:8801"
     env_file:
       - .env
+    networks:
+      - backend
+
+  model-grpc:
+    build: './dockerfiles/model_grpc'
+    image: model_grpc
+    container_name: model_grpc
+    profiles:
+      - all
+    depends_on:
+      - postgres
+    ports:
+      - "50051:50051"
+    environment:
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY:-minio}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY:-minio123}
+      - MLFLOW_S3_ENDPOINT_URL=http://s3:9000
+      - AWS_ENDPOINT_URL_S3=http://s3:9000
+      - PG_CONN_STR=postgresql+psycopg2://airflow:airflow@postgres:5432/fashion
     networks:
       - backend
 

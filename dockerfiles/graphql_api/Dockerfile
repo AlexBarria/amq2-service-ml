@@ -9,8 +9,8 @@ COPY poetry.lock pyproject.toml ./
 RUN pip install poetry && poetry config virtualenvs.create false && poetry install --no-root
 
 # Copy source code
-COPY src ./src
+COPY src/api/ .
 
 EXPOSE 8801
 
-CMD ["uvicorn", "src.api.graphql_api:app", "--host", "0.0.0.0", "--port", "8801"]
+CMD ["uvicorn", "graphql_api:app", "--host", "0.0.0.0", "--port", "8801"]

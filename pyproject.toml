@@ -16,6 +16,8 @@ psycopg2-binary = "^2.9.10"
 strawberry-graphql = {extras = ["fastapi"], version = "^0.278.0"}
 fastapi = "^0.116.1"
 uvicorn = "^0.35.0"
+grpcio = "^1.73.1"
+grpcio-tools = "^1.73.1"
 
 
 [build-system]

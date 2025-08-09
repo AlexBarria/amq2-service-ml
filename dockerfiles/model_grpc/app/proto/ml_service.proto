@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package ml_service;
+
+message Search {
+  string description = 1;
+  string image_path = 2;
+}
+
+message Prediction {
+  repeated FashionProduct fashion_product = 1;
+}
+
+message FashionProduct {
+  int32 id = 1;
+  string filename = 2;
+  string s3_path = 3;
+  string master_category    = 4;
+  string sub_category = 5;
+  string article_type = 6;
+  string base_colour = 7;
+  string season = 8;
+  string year = 9;
+  string usage = 10;
+  string gender = 11;
+  string product_display_name = 12;
+  string dataset = 13;
+  string created_at = 14;
+  repeated float embedding = 15;
+}
+
+service MLService {
+  rpc Predict (Search) returns (Prediction);
+}

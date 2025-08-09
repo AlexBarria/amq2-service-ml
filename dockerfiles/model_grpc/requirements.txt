@@ -1,0 +1,14 @@
+mlflow[extras]==3.1.4
+boto3==1.39.8
+torch==2.7.1
+torchvision==0.22.1
+transformers==4.54.1
+open-clip-torch==3.0.0
+s3fs==2025.3.0
+fsspec==2025.3.0
+faiss-cpu==1.11.0
+grpcio==1.73.1
+grpcio-tools==1.73.1
+psycopg2-binary~=2.9.10
+sqlalchemy~=2.0.42
+pgvector==0.4.1
