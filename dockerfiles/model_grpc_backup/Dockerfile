@@ -2,11 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install requirements
-COPY dockerfiles/model_grpc/requirements.txt /requirements.txt
-RUN apt-get update && apt-get install -y curl
+# Install poetry
+COPY dockerfiles/model_grpc/poetry.lock dockerfiles/model_grpc/pyproject.toml .
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r /requirements.txt
+RUN pip install poetry && poetry install --no-root
 
 # Copy source code
 COPY src/model_grpc/ .

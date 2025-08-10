@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "graphql-api"
+version = "0.1.0"
+description = ""
+authors = ["Alex Barria", "Clara Bureu", "Maximiliano Torti"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+sqlalchemy = "^2.0.42"
+dotenv = "^0.9.9"
+psycopg2-binary = "^2.9.10"
+strawberry-graphql = {extras = ["fastapi"], version = "^0.278.0"}
+fastapi = "^0.116.1"
+uvicorn = "^0.35.0"
+grpcio = "^1.73.1"
+grpcio-tools = "^1.73.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

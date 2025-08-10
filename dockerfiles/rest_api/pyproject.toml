@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "rest-api"
+version = "0.1.0"
+description = ""
+authors = ["Alex Barria", "Clara Bureu", "Maximiliano Torti"]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+fastapi = "^0.116"
+pydantic = "^2.11.5"
+uvicorn = "^0.27"
+grpcio = "^1.73.1"
+grpcio-tools = "^1.73.1"
+boto3 = "^1.39.8"
+python-multipart = "^0.0.20"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

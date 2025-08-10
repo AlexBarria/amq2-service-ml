@@ -35,7 +35,10 @@ def process_train_test_dataset():
     )
     def get_data():
         """
-        Load the raw data from Hugging Face.
+        Downloads the original Fashion Product Images dataset from Hugging Face.
+
+        Loads the dataset, optionally selects a subset based on the 'max_products' Airflow variable,
+        and saves the raw dataset to S3 storage for further processing.
         """
         from datasets import load_dataset
         from airflow.models import Variable
@@ -70,7 +73,10 @@ def process_train_test_dataset():
     )
     def split_dataset():
         """
-        Generate a dataset split into a training part and a test part
+        Splits the raw Fashion Product Images dataset into training and test sets.
+
+        Loads the dataset from S3, shuffles it, splits it according to the 'test_size' Airflow variable,
+        and saves the resulting train and test splits back to S3.
         """
         from datasets import load_from_disk
         from airflow.models import Variable
@@ -102,7 +108,10 @@ def process_train_test_dataset():
     )
     def process_datasets():
         """
-        Process the training and test dataset by creating the products metadata and saving images.
+        Processes the training and test datasets by extracting metadata and saving images.
+
+        Loads the train and test splits from S3, uploads images to S3, stores metadata in the SQL database,
+        and logs dataset statistics to MLflow for experiment tracking.
         """
         from datasets import load_from_disk
         from airflow.models import Variable

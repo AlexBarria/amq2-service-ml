@@ -28,12 +28,20 @@ default_args = {
     catchup=False,
 )
 def finetune():
+
     @task.virtualenv(
         task_id="train_the_challenger_model",
         requirements=["datasets==3.6.0"],
         system_site_packages=True
     )
     def finetune_the_challenger_model():
+        """
+        Fine-tunes the CLIP model on the latest fashion product dataset.
+
+        Loads training data from the database, prepares the dataset and dataloader,
+        fine-tunes the model, and logs the new model as a 'challenger' in MLflow.
+        Tracks training parameters and artifacts for experiment management.
+        """
         import mlflow
         from airflow.models import Variable
         from domain.dataset import FashionDataset
@@ -166,6 +174,12 @@ def finetune():
         system_site_packages=True
     )
     def evaluate_champion_challenge():
+        """
+        Evaluates the performance of the 'champion' and 'challenger' models.
+
+        Loads the test dataset and both models from MLflow, computes top-3 description accuracy,
+        and promotes the challenger to champion if it outperforms the current champion.
+        """
         import mlflow
         from airflow.models import Variable
         from domain.product import Product

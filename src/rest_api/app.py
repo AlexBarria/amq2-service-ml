@@ -1,3 +1,9 @@
+"""
+REST API for ML-based fashion product retrieval.
+
+This module defines a FastAPI application that exposes endpoints for searching similar fashion products
+by text description or image. It communicates with a gRPC model service for inference and uses S3 for image storage.
+"""
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import grpc
@@ -13,17 +19,39 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
+
 class DescriptionRequest(BaseModel):
+    """
+    Request model for searching by product description.
+
+    Attributes:
+        description (str): The product description to search for.
+    """
     description: str
 
 
 @app.get("/")
 def read_root():
+    """
+    Health check endpoint.
+
+    Returns:
+        dict: A message indicating the REST ML Service is running.
+    """
     return {"message": "REST ML Service is running. Post to /search/description or /search/image"}
 
 
 @app.post("/search/description")
 async def search_by_description(request: DescriptionRequest):
+    """
+    Searches for similar fashion products using a text description.
+
+    Args:
+        request (DescriptionRequest): The request body containing the description.
+
+    Returns:
+        list[dict]: List of similar fashion products as dictionaries.
+    """
     logging.info("Received search request with description: %s", request.description)
     description = request.description
     with grpc.insecure_channel("model_grpc:50051") as channel:
@@ -54,6 +82,15 @@ async def search_by_description(request: DescriptionRequest):
 
 @app.post("/search/image")
 async def search_by_image(request: Request):
+    """
+    Searches for similar fashion products by uploading an image.
+
+    Args:
+        request (Request): The raw HTTP request containing the image binary.
+
+    Returns:
+        list[dict]: List of similar fashion products as dictionaries.
+    """
     logging.info("Received search request with image")
     image_bytes = await request.body()
     s3_client = boto3.client('s3')

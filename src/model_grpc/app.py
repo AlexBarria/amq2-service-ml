@@ -1,3 +1,9 @@
+"""
+gRPC server for ML-based fashion product retrieval.
+
+This module defines the gRPC service for product search using text or image queries.
+It loads a CLIP-based model, computes embeddings, and retrieves similar products from a PostgreSQL database.
+"""
 import grpc
 from concurrent import futures
 
@@ -16,10 +22,33 @@ logging.basicConfig(level=logging.INFO)
 
 
 class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
+    """
+    gRPC service for fashion product retrieval.
+    """
+
     def __init__(self, model=None):
+        """
+        Initializes the MLServiceServicer.
+
+        Args:
+            model (ProductRetrieval): The product retrieval engine.
+        """
         self.model = model
 
     def Predict(self, request, context):
+        """
+        Handles prediction requests.
+
+        Computes embeddings for the provided description or image path,
+        retrieves the most similar products from the database, and returns them.
+
+        Args:
+            request (ml_service_pb2.Search): The gRPC request containing description or image_path.
+            context: gRPC context.
+
+        Returns:
+            ml_service_pb2.Prediction: The prediction response with similar products.
+        """
         if self.model is None:
             logger.error("Model is unavailable.")
             context.set_details("Model unavailable")
@@ -75,6 +104,12 @@ class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
 
 
 def serve():
+    """
+    Loads the model and starts the gRPC server.
+
+    Loads the champion model from MLflow, initializes the product retrieval engine,
+    and starts the gRPC server to listen for prediction requests.
+    """
     logger.info("Loading the model")
     mlflow.set_tracking_uri('http://mlflow:5000')
     try:

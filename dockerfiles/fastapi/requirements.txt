@@ -1,7 +1,0 @@
-fastapi>=0.116
-pydantic==2.11.5
-uvicorn>=0.27
-grpcio==1.73.1
-grpcio-tools==1.73.1
-boto3==1.39.8
-python-multipart==0.0.20

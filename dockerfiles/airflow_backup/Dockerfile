@@ -11,9 +11,8 @@ RUN apt-get update \
 USER airflow
 
 # Install Poetry
-COPY dockerfiles/airflow/requirements.txt /requirements.txt
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir apache-airflow[virtualenv]==3.0.2 -r /requirements.txt
+COPY dockerfiles/airflow/poetry.lock dockerfiles/airflow/pyproject.toml ./
+RUN pip install poetry && poetry config virtualenvs.create false && poetry install --no-root
 
 # copy source code
 COPY dockerfiles/airflow/secrets /opt/secrets
