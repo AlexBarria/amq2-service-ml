@@ -37,7 +37,7 @@ La implementación de ese servicio incluye:
 - Aprendizaje federado y seguridad. (TBD según próxima clase)
 - Orquestación del servicio en contenedores utilizando Docker.
 
-![Diagrama de servicios](final_assign.png)
+![Diagrama de servicios](mlops2_architecture.png)
 
 Por defecto, cuando se inician los multi-contenedores, se crean los siguientes buckets:
 
