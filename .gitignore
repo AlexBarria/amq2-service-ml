@@ -160,5 +160,6 @@ cython_debug/
 
 # Images
 *.png
+!mlops2_architecture.png
 *.jpg
 *.jpeg

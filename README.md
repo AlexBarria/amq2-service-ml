@@ -20,54 +20,64 @@ La implementación de ese servicio incluye:
     - Un DAG que realiza experimentos de fine-tuning del modelo CLIP con el dataset y se calculan métricas obtenidas. Se
       compara el nuevo modelo ajustado con el mejor modelo hasta ahora, y si es mejor, se reemplaza. Todo se lleva a
       cabo siendo registrado en MLflow.
-- [MLflow](https://mlflow.org/)
-- GraphQL para realizar consultas de los productos disponibles y búsquedas por texto o imágen.
+    - Un DAG que recrea la base de datos de producción, descargando datos de un repositorio público, guardando los
+      metadatos en una base de datos PostgreSQL (tabla fashion_files) y luego actualizando los embeddings para cada
+    - producto utilizando el mejor modelo registrado en MLflow.
+- [MLflow](https://mlflow.org/) para llevar registro de los experimentos, datasets y modelos entrenados. En especial 
+  para registrar los mejores modelos de finetuned CLIP a ser utilizados en producción y sus métricas.
+- GraphQL para realizar consultas de los productos disponibles en PostgreSQL y ejecutar búsquedas por texto mediante
+  llamada gRPC al servicio de modelo.
+- Rest api para realizar consultas de los productos disponibles en PostgreSQL y ejecutar búsquedas por texto o imágenes
+  mediante llamada gRPC al servicio de modelo.
+- Servicio de modelo que sirve el mejor modelo registrado en MLflow para realizar búsquedas por texto o imágenes
+  mediante llamadas gRPC.
 - [MinIO](https://min.io/) para almacenar los buckets.
 - Base de datos relacional [PostgreSQL](https://www.postgresql.org/) para almacenar los productos.
 - Base de dato key-value [ValKey](https://valkey.io/)
 - Aprendizaje federado y seguridad. (TBD según próxima clase)
 - Orquestación del servicio en contenedores utilizando Docker.
 
-![Diagrama de servicios](final_assign.png)
+![Diagrama de servicios](mlops2_architecture.png)
 
 Por defecto, cuando se inician los multi-contenedores, se crean los siguientes buckets:
 
-- `s3://data`
+- `s3://data` (usado por Airflow para guardar los datos de entrenamiento y pruebas).
 - `s3://mlflow` (usada por MLflow para guardar los artefactos).
+- `s3://prod` (usada para almacenar las imágenes de la base de datos de producción).
+- `s3://tmp` (usada para almacenar temporalmente las imágenes subidas por usuarios al realizar búsquedas de productos
+  por imágen).
 
 y las siguientes bases de datos:
 
 - `mlflow_db` (usada por MLflow).
 - `airflow` (usada por Airflow).
+- `fashion` (usada para almacenar los metadatos de los productos de moda).
 
 ## Instalación
 
 1. Para poder levantar todos los servicios, primero instala [Docker](https://docs.docker.com/engine/install/) en tu
    computadora (o en el servidor que desees usar).
 2. Clona este repositorio.
-3. Crea las carpetas `airflow/config`, `airflow/dags`, `airflow/logs`, `airflow/plugins`, `airflow/logs`.
-4. Si estás en Linux o MacOS, en el archivo `.env`, reemplaza `AIRFLOW_UID` por el de tu usuario o alguno que consideres
+3. Si estás en Linux o MacOS, en el archivo `.env`, reemplaza `AIRFLOW_UID` por el de tu usuario o alguno que consideres
    oportuno (para encontrar el UID, usa el comando `id -u <username>`). De lo contrario, Airflow dejará sus carpetas
    internas como root y no podrás subir DAGs (en `airflow/dags`) o plugins, etc.
-5. En la carpeta raíz de este repositorio, ejecuta:
+4. En la carpeta raíz de este repositorio, ejecuta:
 
 ```bash
 docker compose --profile all up
 ```
 
-6. Una vez que todos los servicios estén funcionando (verifica con el comando `docker ps -a` que todos los servicios
+5. Una vez que todos los servicios estén funcionando (verifica con el comando `docker ps -a` que todos los servicios
    estén healthy o revisa en Docker Desktop), podrás acceder a los diferentes servicios mediante:
-    - Apache Airflow: http://localhost:8080
+    - Apache Airflow: http://localhost:18080
     - MLflow: http://localhost:5001
     - MinIO: http://localhost:9001 (ventana de administración de Buckets)
-    - API: http://localhost:8800/
-    - Documentación de la API: http://localhost:8800/docs
+    - Rest API: http://localhost:8800/
+    - GraphQL API: http://localhost:8801/.
+    - GraphQL API playground: http://localhost:8801/graphql
 
 Si estás usando un servidor externo a tu computadora de trabajo, reemplaza `localhost` por su IP (puede ser una privada
 si tu servidor está en tu LAN o una IP pública si no; revisa firewalls u otras reglas que eviten las conexiones).
-
-Todos los puertos u otras configuraciones se pueden modificar en el archivo `.env`. Se invita a jugar y romper para
-aprender; siempre puedes volver a clonar este repositorio.
 
 ## Apagar los servicios
 
@@ -162,17 +172,6 @@ no tendrás problemas.
 La base de datos Valkey es usada por Apache Airflow para su funcionamiento. Tal como está configurado ahora no esta
 expuesto el puerto para poder ser usado externamente. Se puede modificar el archivo `docker-compose.yaml` para
 habilitaro.
-
-## Pull Request
-
-Este repositorio está abierto para que realicen sus propios Pull Requests y así contribuir a mejorarlo. Si desean
-realizar alguna modificación, **¡son bienvenidos!** También se pueden crear nuevos entornos productivos para aumentar la
-variedad de implementaciones, idealmente en diferentes `branches`. Algunas ideas que se me ocurren que podrían
-implementar son:
-
-- Reemplazar Airflow y MLflow con [Metaflow](https://metaflow.org/) o [Kubeflow](https://www.kubeflow.org).
-- Reemplazar MLflow con [Seldon-Core](https://github.com/SeldonIO/seldon-core).
-- Agregar un servicio de tableros como, por ejemplo, [Grafana](https://grafana.com).
 
 ## Actualizaciones
 
@@ -299,6 +298,30 @@ Consulta flexible con múltiples filtros opcionales y paginación:
 
 ---
 
+#### 🔹 `search(...)`
+
+Realiza una búsqueda avanzada por texto de productos de modda, retornando los productos que más coincidan con la
+descripción ingresada.
+
+**Parámetros disponibles:**
+
+- `description` (String)
+-
+
+**Ejemplos:**
+
+```graphql
+mutation{
+  search(description:"soccer jersey"){
+    id
+    filename
+    productDisplayName
+  }
+}
+```
+
+---
+
 ### 📦 Campos disponibles en cada archivo (`FashionFile`)
 
 - `id`
@@ -320,4 +343,48 @@ Consulta flexible con múltiples filtros opcionales y paginación:
 
 > 💡 Nota: los archivos físicos están almacenados en un bucket S3 (MinIO), y los campos representan metadatos extraídos
 > al momento de la carga del dataset.
->> > > > > > be37c6d9145b6afd10c5928ced6e139cf350f759
+
+## API REST
+
+Este proyecto expone una API REST desarrollada con **FastAPI**, que permite realizar búsquedas de productos de moda
+tanto por texto como por imágenes.
+
+### 🔌 Consultar la API
+
+Docker levantará la API en el puerto 8800. Debe utilizarse comando curl o postman para realizar las consultas.
+
+---
+
+### 📋 Queries disponibles
+
+#### 🔹 `POST /search/description`
+
+Realiza una búsqueda avanzada por texto de productos de moda, retornando los productos que más coincidan con la
+descripción ingresada.
+
+```commandline
+curl --location 'http://localhost:8800/search/description' \
+    --header 'Content-Type: application/json' \
+    --data '{"description": "white shoes"}'
+```
+
+---
+
+#### 🔹 `POST /search/image`
+
+Realiza una búsqueda avanzada por imagen de productos de moda, retornando los productos que más coincidan con la imágen
+ingresada. Para este endpoint, la imágen es temporalmente subida a s3 previo a realizar la búsqueda.
+
+**Ejemplos:**
+
+```commandline
+curl --location 'http://localhost:8800/search/image' \
+    --header 'Content-Type: image/png' \
+    --data-binary '/home/user/img.png'
+```
+
+---
+
+### 📦 Campos disponibles
+
+Los campos disponibles en la API REST coinciden con los de la API GraphQL.

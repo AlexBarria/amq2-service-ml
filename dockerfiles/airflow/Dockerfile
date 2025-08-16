@@ -1,5 +1,4 @@
 FROM apache/airflow:3.0.2
-COPY requirements.txt /requirements.txt
 
 USER root
 RUN apt-get update \
@@ -10,7 +9,13 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 USER airflow
-COPY requirements.txt /requirements.txt
 
+# Install Poetry
+COPY dockerfiles/airflow/requirements.txt /requirements.txt
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir apache-airflow[virtualenv]==3.0.2 -r /requirements.txt
+
+# copy source code
+COPY dockerfiles/airflow/secrets /opt/secrets
+COPY src/airflow_dags/ /opt/airflow/dags
+COPY src/domain /opt/airflow/plugins/domain

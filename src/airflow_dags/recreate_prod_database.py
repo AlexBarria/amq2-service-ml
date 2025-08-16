@@ -28,6 +28,7 @@ default_args = {
     catchup=False,
 )
 def recreate_prod_database():
+
     @task.virtualenv(
         task_id="obtain_original_data",
         requirements=["datasets==3.6.0"],
@@ -35,7 +36,10 @@ def recreate_prod_database():
     )
     def get_data():
         """
-        Load the raw data from Hugging Face.
+        Downloads the original Fashion Product Images dataset from Hugging Face and saves it to S3.
+
+        Loads the dataset using the `datasets` library, then saves the raw dataset to the specified S3 bucket
+        for further processing in the ETL pipeline.
         """
         from datasets import load_dataset
         from airflow.models import Variable
@@ -65,7 +69,10 @@ def recreate_prod_database():
     )
     def process_dataset():
         """
-        Process the dataset by creating the products metadata and saving images.
+        Processes the raw Fashion Product Images dataset and stores metadata and images.
+
+        Loads the dataset from S3, uploads each image to S3 storage, and inserts product metadata into the SQL database.
+        Creates or recreates the `fashion_files` table.
         """
         from datasets import load_from_disk
         from airflow.models import Variable
@@ -139,7 +146,10 @@ def recreate_prod_database():
     )
     def index_dataset():
         """
-        Fill the product images embeddings in the database.
+        Computes and stores image embeddings for all products in the database.
+
+        Loads the champion model from MLflow, computes image embeddings for each product,
+        and updates the `fashion_files` table with the generated embeddings for similarity search.
         """
         from airflow.models import Variable
         import mlflow

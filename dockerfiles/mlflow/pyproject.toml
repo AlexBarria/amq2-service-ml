@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "mlflow-server"
+version = "0.1.0"
+description = ""
+authors = ["Alex Barria", "Clara Bureu", "Maximiliano Torti"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+mlflow = {extras = ["extras"], version = "^3.1.4"}
+psycopg2-binary = "^2.9.10"
+boto3 = "^1.40.1"
+cryptography = "^45.0.5"
+pymysql = "^1.1.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
