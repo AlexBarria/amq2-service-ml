@@ -28,7 +28,7 @@ x-airflow-common: &airflow-common
     - airflow
     - all
   environment: &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor # LocalExecutor
+    AIRFLOW__CORE__EXECUTOR:  LocalExecutor # CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER:-airflow}:${PG_PASSWORD:-airflow}@postgres/${PG_DATABASE:-airflow}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${PG_USER:-airflow}:${PG_PASSWORD:-airflow}@postgres/${PG_DATABASE:-airflow}
@@ -48,7 +48,7 @@ x-airflow-common: &airflow-common
     AWS_ENDPOINT_URL_S3: http://s3:9000
     MLFLOW_S3_ENDPOINT_URL: http://s3:9000
   volumes:
-    - airflow_dags:/opt/airflow/dags
+    - ./src/airflow_dags:/opt/airflow/dags
     - airflow_logs:/opt/airflow/logs
     - airflow_config:/opt/airflow/config
     - airflow_plugins:/opt/airflow/plugins
@@ -60,8 +60,8 @@ x-airflow-common: &airflow-common
   depends_on: &airflow-common-depends-on
     postgres:
       condition: service_healthy
-    redis:
-      condition: service_healthy
+    # redis:
+    #   condition: service_healthy
 
 services:
   postgres:
@@ -92,19 +92,19 @@ services:
       timeout: 20s
       retries: 3
 
-  redis:
-    image: valkey/valkey:8.1-bookworm
-    expose:
-      - 6379
-    networks:
-      - backend
-    healthcheck:
-      test: [ "CMD", "valkey-cli", "ping" ]
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
+  # redis:
+  #   image: valkey/valkey:8.1-bookworm
+  #   expose:
+  #     - 6379
+  #   networks:
+  #     - backend
+  #   healthcheck:
+  #     test: ["CMD", "valkey-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 30s
+  #     retries: 50
+  #     start_period: 30s
+  #   restart: always
 
   s3:
     restart: always
