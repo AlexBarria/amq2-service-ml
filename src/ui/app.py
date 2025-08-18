@@ -3,6 +3,9 @@ import streamlit as st
 import requests
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+import boto3
+import io
+from PIL import Image
 
 # Load environment variables
 load_dotenv()
@@ -18,6 +21,9 @@ st.set_page_config(
 # Constants
 REST_API_URL = os.getenv("REST_API_URL", "http://localhost:8800")
 GRAPHQL_URL = os.getenv("GRAPHQL_URL", "http://localhost:8801/graphql")
+S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "")
 
 # Types
 class Product:
@@ -169,8 +175,15 @@ def display_product_card(product: Product):
             if not product.image_url or not product.image_url.strip():
                 st.warning(f"No hay URL de imagen disponible. s3_path: {product.s3_path}")
                 return
-            
-            st.write("URL de la imagen:", product.image_url)
+
+            client = boto3.client('s3', aws_access_key_id=S3_ACCESS_KEY, aws_secret_access_key=S3_SECRET_KEY,
+                                  endpoint_url=S3_ENDPOINT)
+            bucket, key = product.s3_path.split('/', 1)
+            image_bytes = io.BytesIO()
+            client.download_fileobj(bucket, key, image_bytes)
+            image_bytes.seek(0)
+            image = Image.open(image_bytes).convert('RGB')
+            st.image(image, caption=product.product_display_name or "Product Image", use_container_width=True)
                 
         with col2:
             if product.product_display_name:

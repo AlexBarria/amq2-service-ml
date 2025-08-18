@@ -27,6 +27,13 @@ x-airflow-common: &airflow-common
   profiles:
     - airflow
     - all
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [ gpu ]
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR:  LocalExecutor # CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
@@ -61,7 +68,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__SCHEDULER__MAX_THREADS: "2"
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "10"
     AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: "0"
-
+    NVIDIA_VISIBLE_DEVICES: all
   volumes:
     - ./src/airflow_dags:/opt/airflow/dags
     - airflow_logs:/opt/airflow/logs
@@ -412,12 +419,20 @@ services:
       - postgres
     ports:
       - "50051:50051"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
     environment:
       - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY:-minio}
       - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY:-minio123}
       - MLFLOW_S3_ENDPOINT_URL=http://s3:9000
       - AWS_ENDPOINT_URL_S3=http://s3:9000
-      - PG_CONN_STR=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+      - PG_CONN_STR=postgresql+psycopg2://airflow:airflow@postgres:5432/fashion
+      - NVIDIA_VISIBLE_DEVICES=all
     networks:
       - backend
 
@@ -489,6 +504,19 @@ services:
       - "29092:29092"   # optional host access for testing
     networks: [backend]
 
+  kafka-console:
+    image: redpandadata/console:latest
+    container_name: kafka_console
+    profiles: [ all, airflow, mlflow ]
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    ports:
+      - "18090:8080"
+    depends_on:
+      kafka:
+        condition: service_started
+    networks: [ backend ]
+
   inference_dispatcher:
     image: python:3.11-slim
     profiles: [all]
@@ -518,11 +546,8 @@ networks:
     driver: bridge
 
 volumes:
-  airflow_dags:
   airflow_logs:
   airflow_config:
-  airflow_plugins:
   airflow_secrets:
   db_data:
   minio_data:
-

@@ -113,6 +113,7 @@ def recreate_prod_database():
         logger.info("Processing dataset...")
         dataset = load_from_disk("s3://prod/raw/fashion-product", storage_options=storage_options)
         s3_dir = "fashion_files/"
+        bucket = "prod"
         for idx, item in enumerate(dataset):
             item = dict(item)  # Force conversion to dict for compatibility
             item_name = f"{idx}_{item['id']}.jpg"
@@ -120,11 +121,11 @@ def recreate_prod_database():
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            s3_client.upload_fileobj(image_bytes, "prod", image_s3_path)
+            s3_client.upload_fileobj(image_bytes, bucket, image_s3_path)
             with engine.begin() as conn:
                 conn.execute(table_products.insert().values(
                     filename=item_name,
-                    s3_path=image_s3_path,
+                    s3_path=bucket + "/" + image_s3_path,
                     masterCategory=item["masterCategory"],
                     subCategory=item["subCategory"],
                     articleType=item["articleType"],
@@ -170,7 +171,7 @@ def recreate_prod_database():
         except Exception as e:
             logger.warning(f"Champion model not found: {e}")
             model_champion = None
-        product_retrieval = ProductRetrieval(model=model_champion, bucket="prod")
+        product_retrieval = ProductRetrieval(model=model_champion)
 
         logger.info("Processing embeddings...")
         engine = create_engine(Variable.get("fashion_db_conn"))

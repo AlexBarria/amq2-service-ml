@@ -20,21 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 class ProductRetrieval:
-    def __init__(self, model, bucket: str = "data"):
+    def __init__(self, model):
         """
         Initializes the CLIP model and processor for embedding generation.
         If model is not provided, it uses the default openai pretrained model.
 
         Args:
             model (torch.nn.Module): CLIP model.
-            bucket (str): S3 bucket name where images are stored.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {self.device}")
         if model:
             _, _, self.processor = open_clip.create_model_and_transforms('ViT-B-32')
             self.model = model
-            logger.info(f"Initialized CLIP model from fine-tuned")
+            logger.info("Initialized CLIP model from fine-tuned")
         else:
             self.model, _, self.processor = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
             logger.info("Initialized CLIP model from pretrained openai")
@@ -43,7 +42,6 @@ class ProductRetrieval:
         self.tokenizer = open_clip.get_tokenizer('ViT-B-32')
         self.index = None
         self.index_products = []
-        self.bucket = bucket
 
     def compute_text_embeddings(self, text: str) -> np.ndarray:
         """
@@ -68,21 +66,20 @@ class ProductRetrieval:
 
     # In domain/clip_model.py
 
-    def compute_image_embeddings(self, bucket: str, key: str) -> np.ndarray:
+    def compute_image_embeddings(self, image_path: str) -> np.ndarray:
         """
         Computes image embeddings for a given image in S3.
 
         Args:
-            bucket (str): The S3 bucket name.
-            key (str): The object key (path) in the S3 bucket.
+            image_path (str): A string with the S3 bucket name / the object key (path) in the S3 bucket.
 
         Returns:
             np.ndarray: Normalized image embeddings.
         """
+        bucket, key = image_path.split('/', 1)
         try:
             client = boto3.client('s3')
             image_bytes = io.BytesIO()
-            # This now uses the bucket and key passed as arguments
             client.download_fileobj(bucket, str(key), image_bytes)
             image_bytes.seek(0)
             image = Image.open(image_bytes).convert('RGB')

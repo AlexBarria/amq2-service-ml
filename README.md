@@ -437,3 +437,52 @@ Puedes modificar estas URLs desde la interfaz de usuario en la barra lateral si 
    - **Texto**: Ingresa una descripción del producto que estás buscando.
    - **Imagen**: Sube una imagen para encontrar productos visualmente similares.
 3. Haz clic en "Search" y explora los resultados.
+
+## Interfaz de Usuario con Streamlit
+
+Este proyecto incluye una interfaz de usuario interactiva desarrollada con Streamlit que permite realizar búsquedas de productos de moda tanto por texto como por imágenes de manera sencilla.
+
+### 🔍 Características
+
+- Búsqueda por descripción de texto
+- Búsqueda por imágenes
+- Soporte para API REST y GraphQL
+- Visualización de resultados con imágenes y detalles del producto
+- Interfaz intuitiva y fácil de usar
+
+### 🚀 Cómo ejecutar la aplicación Streamlit
+
+1. Asegúrate de que los servicios de backend estén en ejecución (ver sección de Instalación).
+
+2. Navega hasta el directorio raíz del proyecto:
+   ```bash
+   cd ruta/al/proyecto/amq2-service-ml
+   ```
+
+3. Instala las dependencias necesarias (si aún no lo has hecho):
+   ```bash
+   poetry install
+   ```
+
+4. Ejecuta la aplicación Streamlit:
+   ```bash
+   poetry run streamlit run src/ui/app.py
+   ```
+
+5. La aplicación se abrirá automáticamente en tu navegador predeterminado en `http://localhost:8501`.
+
+### ⚙️ Configuración
+
+La aplicación Streamlit se conecta por defecto a los siguientes servicios:
+- API REST: `http://localhost:8800`
+- API GraphQL: `http://localhost:8801/graphql`
+
+Puedes modificar estas URLs desde la interfaz de usuario en la barra lateral si es necesario.
+
+### 📱 Uso
+
+1. **Selecciona el tipo de API** (REST o GraphQL) en la barra lateral.
+2. **Elige el modo de búsqueda**:
+   - **Texto**: Ingresa una descripción del producto que estás buscando.
+   - **Imagen**: Sube una imagen para encontrar productos visualmente similares.
+3. Haz clic en "Search" y explora los resultados.

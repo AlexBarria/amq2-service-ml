@@ -167,6 +167,7 @@ def process_train_test_dataset():
         # Process and save training set
         logger.info("Processing training set...")
         train_dataset = load_from_disk("s3://data/interim/train_dataset", storage_options=storage_options)
+        bucket = "data"
         train_s3_dir = "processed/train/"
         for idx, item in enumerate(train_dataset):
             item = dict(item)  # Force conversion to dict for compatibility
@@ -175,11 +176,11 @@ def process_train_test_dataset():
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            s3_client.upload_fileobj(image_bytes, "data", image_s3_path)
+            s3_client.upload_fileobj(image_bytes, bucket , image_s3_path)
             with engine.begin() as conn:
                 conn.execute(table_train.insert().values(
                     filename=item_name,
-                    s3_path=image_s3_path,
+                    s3_path= bucket + "/" + image_s3_path,
                     masterCategory=item["masterCategory"],
                     subCategory=item["subCategory"],
                     articleType=item["articleType"],
@@ -205,11 +206,11 @@ def process_train_test_dataset():
             image_bytes = io.BytesIO()
             item['image'].save(image_bytes, 'JPEG')
             image_bytes.seek(0)
-            s3_client.upload_fileobj(image_bytes, "data", image_s3_path)
+            s3_client.upload_fileobj(image_bytes, bucket, image_s3_path)
             with engine.begin() as conn:
                 conn.execute(table_test.insert().values(
                     filename=item_name,
-                    s3_path=image_s3_path,
+                    s3_path=bucket + "/" + image_s3_path,
                     masterCategory=item["masterCategory"],
                     subCategory=item["subCategory"],
                     articleType=item["articleType"],

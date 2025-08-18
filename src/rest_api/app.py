@@ -108,12 +108,13 @@ async def search_by_image(request: Request):
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
     item_name = f"{timestamp}.jpg"
     image_s3_path = s3_dir + item_name
+    bucket = "tmp"
     image_fileobj = io.BytesIO(image_bytes)
-    s3_client.upload_fileobj(image_fileobj, "tmp", image_s3_path)
+    s3_client.upload_fileobj(image_fileobj, bucket, image_s3_path)
     logging.info("Image uploaded to S3 at path: %s", image_s3_path)
     with grpc.insecure_channel("model_grpc:50051") as channel:
         stub = ml_service_pb2_grpc.MLServiceStub(channel)
-        request = ml_service_pb2.Search(description=None, image_path=image_s3_path)
+        request = ml_service_pb2.Search(description=None, image_path= bucket + "/" + image_s3_path)
         response = stub.Predict(request)
     logger.info(f"gRPC response received for image: {image_s3_path}")
     return [

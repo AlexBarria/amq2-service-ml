@@ -13,9 +13,8 @@ USER airflow
 # Install Poetry
 COPY dockerfiles/airflow/requirements.txt /requirements.txt
 RUN pip install --upgrade pip
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 RUN pip install --no-cache-dir apache-airflow[virtualenv]==3.0.2 -r /requirements.txt
 
 # copy source code
 COPY dockerfiles/airflow/secrets /opt/secrets
-COPY src/airflow_dags/ /opt/airflow/dags
-COPY src/domain /opt/airflow/plugins/domain
