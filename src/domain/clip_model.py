@@ -66,38 +66,37 @@ class ProductRetrieval:
             logger.error(f"Failed to compute text embeddings: {e}")
             raise
 
-    def compute_image_embeddings(self, image_path: Union[str, Path]) -> np.ndarray:
+    # In domain/clip_model.py
+
+    def compute_image_embeddings(self, bucket: str, key: str) -> np.ndarray:
         """
-        Computes image embeddings for a single image.
+        Computes image embeddings for a given image in S3.
 
         Args:
-            image_path (str | Path ): Path to image.
+            bucket (str): The S3 bucket name.
+            key (str): The object key (path) in the S3 bucket.
 
         Returns:
             np.ndarray: Normalized image embeddings.
         """
         try:
-            image = None
-            if isinstance(image_path, (str, Path)):
-                try:
-                    client = boto3.client('s3')
-                    image_bytes = io.BytesIO()
-                    client.download_fileobj(self.bucket, str(image_path), image_bytes)
-                    image_bytes.seek(0)
-                    image = Image.open(image_bytes).convert('RGB')
-                except Exception as e:
-                    logger.error(f"Failed to open image {image}: {e}")
-                    raise ValueError(f"Invalid image path or format: {image}")
+            client = boto3.client('s3')
+            image_bytes = io.BytesIO()
+            # This now uses the bucket and key passed as arguments
+            client.download_fileobj(bucket, str(key), image_bytes)
+            image_bytes.seek(0)
+            image = Image.open(image_bytes).convert('RGB')
 
             inputs = self.processor(image).unsqueeze(0).to(self.device)
             with torch.no_grad():
                 image_features = self.model.encode_image(inputs)
                 # Embeddings normalization for cosine similarity
                 image_features = torch.nn.functional.normalize(image_features, p=2, dim=1)
-            logger.debug(f"Image embedding computed for image: {image}")
+            logger.debug(f"Image embedding computed for image: s3://{bucket}/{key}")
             return image_features.cpu().numpy()
         except Exception as e:
-            logger.error(f"Failed to compute image embeddings: {e}")
+            logger.error(f"Failed to compute image embeddings for s3://{bucket}/{key}: {e}")
+            # Re-raise the exception to be handled by the gRPC servicer
             raise
 
     def index_product_database(self, products: List[Product]):

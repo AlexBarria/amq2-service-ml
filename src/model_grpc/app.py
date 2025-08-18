@@ -63,7 +63,21 @@ class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
             embedding = self.model.compute_text_embeddings(description)[0, :]
         elif image_path is not None and len(image_path) > 0:
             logger.info(f"Computing image embedding for image_path: {image_path}")
-            embedding = self.model.compute_image_embeddings(image_path)[0, :]
+
+            # Check if the path contains a bucket/key structure
+            if '/' in image_path:
+                # If it does, split it into bucket and key
+                bucket, key = image_path.split('/', 1)
+            else:
+                # Otherwise, use the default bucket ("tmp") from the model and the full path as the key
+                bucket = self.model.bucket
+                key = image_path
+            
+            logger.info(f"Attempting to download object '{key}' from bucket '{bucket}'")
+            
+            # Call the model function with both bucket and key
+            embedding = self.model.compute_image_embeddings(bucket, key)[0, :]
+
         else:
             logger.error("No valid input provided for prediction.")
             context.set_details("No valid input provided for prediction.")
@@ -75,7 +89,7 @@ class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
             table_fashion = Table("fashion_files", metadata, autoload_with=engine)
             with engine.connect() as conn:
                 result = conn.execute(table_fashion.select()
-                                      .order_by(table_fashion.c.embedding.cosine_distance(embedding)).limit(5))
+                                    .order_by(table_fashion.c.embedding.cosine_distance(embedding)).limit(5))
             products = []
             for row in result.mappings():
                 product = ml_service_pb2.FashionProduct(

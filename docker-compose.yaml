@@ -28,7 +28,7 @@ x-airflow-common: &airflow-common
     - airflow
     - all
   environment: &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor # LocalExecutor
+    AIRFLOW__CORE__EXECUTOR:  LocalExecutor # CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER:-airflow}:${PG_PASSWORD:-airflow}@postgres/${PG_DATABASE:-airflow}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${PG_USER:-airflow}:${PG_PASSWORD:-airflow}@postgres/${PG_DATABASE:-airflow}
@@ -47,6 +47,21 @@ x-airflow-common: &airflow-common
     AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY:-minio123}
     AWS_ENDPOINT_URL_S3: http://s3:9000
     MLFLOW_S3_ENDPOINT_URL: http://s3:9000
+    # Fewer tasks at once across the cluster
+    AIRFLOW__CORE__PARALLELISM: "8"
+
+    # Max active tasks per DAG
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "2"
+
+    # Webserver workers (Gunicorn)
+    AIRFLOW__WEBSERVER__WORKERS: "2"
+
+    # Scheduler parsing processes (name varies by version; these are common)
+    AIRFLOW__SCHEDULER__PARSING_PROCESSES: "2"
+    AIRFLOW__SCHEDULER__MAX_THREADS: "2"
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "10"
+    AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: "0"
+
   volumes:
     - ./src/airflow_dags:/opt/airflow/dags
     - airflow_logs:/opt/airflow/logs
@@ -60,8 +75,8 @@ x-airflow-common: &airflow-common
   depends_on: &airflow-common-depends-on
     postgres:
       condition: service_healthy
-    redis:
-      condition: service_healthy
+    # redis:
+    #   condition: service_healthy
 
 services:
   postgres:
@@ -92,19 +107,19 @@ services:
       timeout: 20s
       retries: 3
 
-  redis:
-    image: valkey/valkey:8.1-bookworm
-    expose:
-      - 6379
-    networks:
-      - backend
-    healthcheck:
-      test: [ "CMD", "valkey-cli", "ping" ]
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
+  # redis:
+  #   image: valkey/valkey:8.1-bookworm
+  #   expose:
+  #     - 6379
+  #   networks:
+  #     - backend
+  #   healthcheck:
+  #     test: ["CMD", "valkey-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 30s
+  #     retries: 50
+  #     start_period: 30s
+  #   restart: always
 
   s3:
     restart: always
@@ -123,6 +138,11 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minio}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY:-minio123}
+      - MINIO_NOTIFY_KAFKA_ENABLE_1=on
+      - MINIO_NOTIFY_KAFKA_BROKERS_1=kafka:9092
+      - MINIO_NOTIFY_KAFKA_TOPIC_1=media.image_uploaded
+      - MINIO_NOTIFY_KAFKA_SASL_1=off
+      - MINIO_NOTIFY_KAFKA_TLS_1=off
     volumes:
       - minio_data:/data
     command: server /data --console-address :9001
@@ -151,6 +171,8 @@ services:
       /usr/bin/mc mb s3/${DATA_REPO_BUCKET_NAME:-data};
       /usr/bin/mc mb s3/${PROD_REPO_BUCKET_NAME:-prod};
       /usr/bin/mc mb s3/${TMP_REPO_BUCKET_NAME:-tmp};
+      /usr/bin/mc mb s3/${KAFKA_QUEUE_BUCKET_NAME:-kafka-queue};
+      /usr/bin/mc event add s3/${KAFKA_QUEUE_BUCKET_NAME:-kafka-queue} arn:minio:sqs::1:kafka --event put --prefix "";
       exit 0;
       '
 
@@ -446,11 +468,48 @@ services:
       --host 0.0.0.0
       --port 8800
     healthcheck:
-      test: curl --include --request GET http://fastapi:8800/ || exit 1
+      test: ["CMD", "curl", "--fail", "http://localhost:8800/"]
       interval: 60s
       timeout: 10s
       start_period: 120s
       retries: 3
+
+  kafka:
+    image: redpandadata/redpanda:latest
+    container_name: kafka
+    profiles: [all, airflow, mlflow]
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:29092
+      - --advertise-kafka-addr PLAINTEXT://kafka:9092,OUTSIDE://localhost:29092
+    ports:
+      - "29092:29092"   # optional host access for testing
+    networks: [backend]
+
+  inference_dispatcher:
+    image: python:3.11-slim
+    profiles: [all]
+    working_dir: /app
+    volumes:
+      - ./src/inference_dispatcher:/app
+    environment:
+      PYTHONUNBUFFERED: 1
+      KAFKA_BOOTSTRAP: kafka:9092
+      TOP_IN: media.image_uploaded
+      TOP_OUT: ml.inference_done
+      MODEL_URL: http://rest-api:8800/predict
+    command: >
+      sh -c "pip install --no-cache-dir confluent-kafka==2.4.* requests &&
+            python dispatcher.py"
+    depends_on:
+      kafka:
+        condition: service_started
+      rest-api:
+        condition: service_healthy
+    networks: [backend]
 
 networks:
   frontend:
@@ -466,3 +525,4 @@ volumes:
   airflow_secrets:
   db_data:
   minio_data:
+

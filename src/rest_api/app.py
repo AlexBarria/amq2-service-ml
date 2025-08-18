@@ -29,6 +29,16 @@ class DescriptionRequest(BaseModel):
     """
     description: str
 
+class S3Request(BaseModel):
+    """
+    Request model for processing a file already in S3.
+
+    Attributes:
+        bucket (str): The S3 bucket where the file is located.
+        key (str): The object key (path) of the file in the bucket.
+    """
+    bucket: str
+    key: str
 
 @app.get("/")
 def read_root():
@@ -106,6 +116,50 @@ async def search_by_image(request: Request):
         request = ml_service_pb2.Search(description=None, image_path=image_s3_path)
         response = stub.Predict(request)
     logger.info(f"gRPC response received for image: {image_s3_path}")
+    return [
+        {
+            "id": prod.id,
+            "filename": prod.filename,
+            "s3_path": prod.s3_path,
+            "masterCategory": prod.master_category,
+            "subCategory": prod.sub_category,
+            "articleType": prod.article_type,
+            "baseColour": prod.base_colour,
+            "season": prod.season,
+            "year": prod.year,
+            "usage": prod.usage,
+            "gender": prod.gender,
+            "productDisplayName": prod.product_display_name,
+            "dataset": prod.dataset,
+            "created_at": prod.created_at
+        }
+        for prod in response.fashion_product
+    ]
+
+
+@app.post("/predict")
+async def predict_from_s3(request: S3Request):
+    """
+    Triggers a prediction for an image already stored in S3.
+    This is called by the Kafka dispatcher.
+
+    Args:
+        request (S3Request): The request body containing the bucket and key.
+
+    Returns:
+        list[dict]: List of similar fashion products as dictionaries.
+    """
+    # Combine the bucket and key into a single path
+    image_s3_path = f"{request.bucket}/{request.key}"
+
+    logging.info("Received prediction request for S3 object: %s", image_s3_path)
+
+    with grpc.insecure_channel("model_grpc:50051") as channel:
+        stub = ml_service_pb2_grpc.MLServiceStub(channel)
+        grpc_request = ml_service_pb2.Search(description=None, image_path=image_s3_path)
+        response = stub.Predict(grpc_request)
+
+    logger.info("gRPC response received for S3 object: %s", image_s3_path)
     return [
         {
             "id": prod.id,
