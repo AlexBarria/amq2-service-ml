@@ -48,10 +48,10 @@ x-airflow-common: &airflow-common
     AWS_ENDPOINT_URL_S3: http://s3:9000
     MLFLOW_S3_ENDPOINT_URL: http://s3:9000
   volumes:
-    - airflow_dags:/opt/airflow/dags
+    - ./src/airflow_dags:/opt/airflow/dags
     - airflow_logs:/opt/airflow/logs
     - airflow_config:/opt/airflow/config
-    - airflow_plugins:/opt/airflow/plugins
+    - ./src/domain:/opt/airflow/plugins/domain
     - airflow_secrets:/opt/secrets
   networks:
     - frontend
@@ -395,7 +395,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY:-minio123}
       - MLFLOW_S3_ENDPOINT_URL=http://s3:9000
       - AWS_ENDPOINT_URL_S3=http://s3:9000
-      - PG_CONN_STR=postgresql+psycopg2://airflow:airflow@postgres:5432/fashion
+      - PG_CONN_STR=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
     networks:
       - backend
 
