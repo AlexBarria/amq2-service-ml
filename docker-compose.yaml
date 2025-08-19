@@ -493,6 +493,7 @@ services:
     image: redpandadata/redpanda:latest
     container_name: kafka
     profiles: [all, airflow, mlflow]
+    restart: unless-stopped
     command:
       - redpanda start
       - --smp 1
@@ -508,6 +509,7 @@ services:
     image: redpandadata/console:latest
     container_name: kafka_console
     profiles: [ all, airflow, mlflow ]
+    restart: unless-stopped
     environment:
       - KAFKA_BROKERS=kafka:9092
     ports:
@@ -520,6 +522,7 @@ services:
   inference_dispatcher:
     image: python:3.11-slim
     profiles: [all]
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./src/inference_dispatcher:/app

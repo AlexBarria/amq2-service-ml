@@ -79,7 +79,10 @@ class Query:
         """
         with engine.connect() as conn:
             result = conn.execute(text("SELECT * FROM fashion_files")).fetchall()
-            return [FashionFile(**row._mapping) for row in result]
+            return [
+                FashionFile(**{k: v for k, v in row._mapping.items() if k != "embedding"})
+                for row in result
+            ]
 
     @strawberry.field
     def files_by_filters(
@@ -132,7 +135,10 @@ class Query:
 
         with engine.connect() as conn:
             result = conn.execute(text(query), params).fetchall()
-            return [FashionFile(**row._mapping) for row in result]
+            return [
+                FashionFile(**{k: v for k, v in row._mapping.items() if k != "embedding"})
+                for row in result
+            ]
 
 
 @strawberry.type
