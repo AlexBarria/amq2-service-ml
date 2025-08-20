@@ -63,21 +63,7 @@ class MLServiceServicer(ml_service_pb2_grpc.MLServiceServicer):
             embedding = self.model.compute_text_embeddings(description)[0, :]
         elif image_path is not None and len(image_path) > 0:
             logger.info(f"Computing image embedding for image_path: {image_path}")
-
-            # Check if the path contains a bucket/key structure
-            if '/' in image_path:
-                # If it does, split it into bucket and key
-                bucket, key = image_path.split('/', 1)
-            else:
-                # Otherwise, use the default bucket ("tmp") from the model and the full path as the key
-                bucket = self.model.bucket
-                key = image_path
-            
-            logger.info(f"Attempting to download object '{key}' from bucket '{bucket}'")
-            
-            # Call the model function with both bucket and key
-            embedding = self.model.compute_image_embeddings(bucket, key)[0, :]
-
+            embedding = self.model.compute_image_embeddings(image_path)[0, :]
         else:
             logger.error("No valid input provided for prediction.")
             context.set_details("No valid input provided for prediction.")
@@ -135,7 +121,7 @@ def serve():
     except Exception as e:
         logger.warning(f"Champion model not found: {e}")
         model_champion = None
-    product_retrieval = ProductRetrieval(model=model_champion, bucket="tmp")
+    product_retrieval = ProductRetrieval(model=model_champion)
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     ml_service_pb2_grpc.add_MLServiceServicer_to_server(MLServiceServicer(product_retrieval), server)

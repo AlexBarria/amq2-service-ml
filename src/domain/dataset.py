@@ -40,8 +40,9 @@ class FashionDataset(Dataset):
         if preload:
             client = boto3.client('s3')
             for product in self.dataset:
+                bucket, key = str(product.image).split('/', 1)
                 image_bytes = io.BytesIO()
-                client.download_fileobj("data", str(product.image), image_bytes)
+                client.download_fileobj(bucket, str(key), image_bytes)
                 image_bytes.seek(0)
                 self.images.append(Image.open(image_bytes).convert('RGB'))
 
@@ -69,8 +70,9 @@ class FashionDataset(Dataset):
                 image = self.images[idx]
             else:
                 client = boto3.client('s3')
+                bucket, key = str(self.dataset[idx].image).split('/', 1)
                 image_bytes = io.BytesIO()
-                client.download_fileobj("data", self.dataset[idx].image, image_bytes)
+                client.download_fileobj(bucket, key, image_bytes)
                 image_bytes.seek(0)
                 image = Image.open(image_bytes).convert('RGB')
             text = item.description

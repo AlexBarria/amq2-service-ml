@@ -231,7 +231,7 @@ def finetune():
 
         # Testing metrics of the champion model
         logger.info("Testing champion model")
-        product_retrieval = ProductRetrieval(model=model_champion, bucket="data")
+        product_retrieval = ProductRetrieval(model=model_champion)
         product_retrieval.index_product_database(test_products)
         champion_accuracy = top_k_description_accuracy_score(product_retrieval, test_products, k=3)
         logger.info(f"Top-3 description champion accuracy: {champion_accuracy}")
@@ -241,7 +241,7 @@ def finetune():
         alias = "challenger"
         model_uri = f"models:/{model_name}@{alias}"
         challenger_model = mlflow.pytorch.load_model(model_uri)
-        product_retrieval = ProductRetrieval(model=challenger_model,bucket="data")
+        product_retrieval = ProductRetrieval(model=challenger_model)
         product_retrieval.index_product_database(test_products)
         challenger_accuracy = top_k_description_accuracy_score(product_retrieval, test_products, k=3)
         logger.info(f"Top-3 description challenger accuracy: {challenger_accuracy}")

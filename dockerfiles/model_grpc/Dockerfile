@@ -6,6 +6,7 @@ WORKDIR /app
 COPY dockerfiles/model_grpc/requirements.txt /requirements.txt
 RUN apt-get update && apt-get install -y curl
 RUN pip install --upgrade pip
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
 RUN pip install --no-cache-dir -r /requirements.txt
 
 # Copy source code
