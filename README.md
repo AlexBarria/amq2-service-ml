@@ -21,20 +21,21 @@ La implementación de ese servicio incluye:
       compara el nuevo modelo ajustado con el mejor modelo hasta ahora, y si es mejor, se reemplaza. Todo se lleva a
       cabo siendo registrado en MLflow.
     - Un DAG que recrea la base de datos de producción, descargando datos de un repositorio público, guardando los
-      metadatos en una base de datos PostgreSQL (tabla fashion_files) y luego actualizando los embeddings para cada
-    - producto utilizando el mejor modelo registrado en MLflow.
+      metadatos en una base de datos PostgreSQL (tabla fashion_files) y luego actualizando los embeddings para cada 
+      producto utilizando el mejor modelo registrado en MLflow.
 - [MLflow](https://mlflow.org/) para llevar registro de los experimentos, datasets y modelos entrenados. En especial 
   para registrar los mejores modelos de finetuned CLIP a ser utilizados en producción y sus métricas.
 - GraphQL para realizar consultas de los productos disponibles en PostgreSQL y ejecutar búsquedas por texto mediante
   llamada gRPC al servicio de modelo.
 - Rest api para realizar consultas de los productos disponibles en PostgreSQL y ejecutar búsquedas por texto o imágenes
   mediante llamada gRPC al servicio de modelo.
+- UI de streamlit para realizar búsquedas en forma gráfica de productos por texto o imágenes mediante la API REST o GraphQL.
+- Procesamiento streaming basado en eventos utilizando Kafka. 
 - Servicio de modelo que sirve el mejor modelo registrado en MLflow para realizar búsquedas por texto o imágenes
   mediante llamadas gRPC.
 - [MinIO](https://min.io/) para almacenar los buckets.
 - Base de datos relacional [PostgreSQL](https://www.postgresql.org/) para almacenar los productos.
 - Base de dato key-value [ValKey](https://valkey.io/)
-- Aprendizaje federado y seguridad. (TBD según próxima clase)
 - Orquestación del servicio en contenedores utilizando Docker.
 
 ![Diagrama de servicios](mlops2_architecture.png)
@@ -70,11 +71,14 @@ docker compose --profile all up
 5. Una vez que todos los servicios estén funcionando (verifica con el comando `docker ps -a` que todos los servicios
    estén healthy o revisa en Docker Desktop), podrás acceder a los diferentes servicios mediante:
     - Apache Airflow: http://localhost:18080
-    - MLflow: http://localhost:5001
-    - MinIO: http://localhost:9001 (ventana de administración de Buckets)
+    - MLflow: http://localhost:5001.
+    - MinIO: http://localhost:9001 (ventana de administración de Buckets).
+    - Base de datos PostgreSQL: `localhost:15432`
     - Rest API: http://localhost:8800/
     - GraphQL API: http://localhost:8801/.
     - GraphQL API playground: http://localhost:8801/graphql
+    - UI de Streamlit: http://localhost:8501
+    - Consola de Kafka: http://localhost:18090
 
 Si estás usando un servidor externo a tu computadora de trabajo, reemplaza `localhost` por su IP (puede ser una privada
 si tu servidor está en tu LAN o una IP pública si no; revisa firewalls u otras reglas que eviten las conexiones).
@@ -438,51 +442,16 @@ Puedes modificar estas URLs desde la interfaz de usuario en la barra lateral si 
    - **Imagen**: Sube una imagen para encontrar productos visualmente similares.
 3. Haz clic en "Search" y explora los resultados.
 
-## Interfaz de Usuario con Streamlit
+## Inferencia en streaming con Kafka
 
-Este proyecto incluye una interfaz de usuario interactiva desarrollada con Streamlit que permite realizar búsquedas de productos de moda tanto por texto como por imágenes de manera sencilla.
+Este proyecto incluye un servicio de inferencia en streaming utilizando Kafka, que permite procesar eventos en tiempo 
+real y realizar búsquedas de productos de moda basadas en imágenes.
 
-### 🔍 Características
+### 🔌 Uso
 
-- Búsqueda por descripción de texto
-- Búsqueda por imágenes
-- Soporte para API REST y GraphQL
-- Visualización de resultados con imágenes y detalles del producto
-- Interfaz intuitiva y fácil de usar
-
-### 🚀 Cómo ejecutar la aplicación Streamlit
-
-1. Asegúrate de que los servicios de backend estén en ejecución (ver sección de Instalación).
-
-2. Navega hasta el directorio raíz del proyecto:
-   ```bash
-   cd ruta/al/proyecto/amq2-service-ml
-   ```
-
-3. Instala las dependencias necesarias (si aún no lo has hecho):
-   ```bash
-   poetry install
-   ```
-
-4. Ejecuta la aplicación Streamlit:
-   ```bash
-   poetry run streamlit run src/ui/app.py
-   ```
-
-5. La aplicación se abrirá automáticamente en tu navegador predeterminado en `http://localhost:8501`.
-
-### ⚙️ Configuración
-
-La aplicación Streamlit se conecta por defecto a los siguientes servicios:
-- API REST: `http://localhost:8800`
-- API GraphQL: `http://localhost:8801/graphql`
-
-Puedes modificar estas URLs desde la interfaz de usuario en la barra lateral si es necesario.
-
-### 📱 Uso
-
-1. **Selecciona el tipo de API** (REST o GraphQL) en la barra lateral.
-2. **Elige el modo de búsqueda**:
-   - **Texto**: Ingresa una descripción del producto que estás buscando.
-   - **Imagen**: Sube una imagen para encontrar productos visualmente similares.
-3. Haz clic en "Search" y explora los resultados.
+1. Utilizando MinIO, sube una imagen al bucket `s3://kafka-queue`.
+2. Subr la imagen enviará un evento al topic de Kafka llamado `media.image_uploaded`.
+3. El servicio de inferencia en streaming escuchará los eventos de Kafka y procesará la imagen.
+4. Los resultados de la búsqueda se enviarán a un topic de Kafka llamado `ml.inference_done`.
+5. Puedes consumir los resultados desde el topic `ml.inference_done` utilizando un consumidor de Kafka.
+6. También puedes consultar los tópicos utilizando el servicio de consola de Kafka.
